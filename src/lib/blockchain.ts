@@ -29,11 +29,20 @@ export const CONTRACT_ABI = [
   "function totalCertificates() public view returns (uint256)"
 ];
 
-// Default contract address - UPDATE THIS after deploying to Ganache
-export const DEFAULT_CONTRACT_ADDRESS = "0x0000000000000000000000000000000000000000";
+// ============================================
+// CONFIGURATION - YOUR DEPLOYED CONTRACT DETAILS
+// ============================================
 
-// Ganache default RPC URL
+// Contract Address (deployed via Remix on Ganache)
+export const DEFAULT_CONTRACT_ADDRESS = "0xfb736d0e99d81dc35D6a6dc3d6231495aA640E46";
+
+// Admin Wallet Address (contract deployer - only this wallet can issue certificates)
+export const ADMIN_WALLET_ADDRESS = "0xE894bc126822B8FBbeD56133E27221a0fC74DAd3";
+
+// Ganache Network Configuration
 export const GANACHE_RPC_URL = "http://127.0.0.1:7545";
+export const GANACHE_CHAIN_ID = 1337;
+export const GANACHE_CHAIN_ID_HEX = "0x539"; // 1337 in hex
 
 export interface Certificate {
   studentName: string;
@@ -67,6 +76,10 @@ export class BlockchainService {
   private contract: ethers.Contract | null = null;
   private contractAddress: string = "";
 
+  /**
+   * Connect to MetaMask wallet and verify Ganache network
+   * @returns Connected wallet address
+   */
   async connectWallet(): Promise<string> {
     if (!window.ethereum) {
       throw new Error("MetaMask not installed! Please install MetaMask extension.");
@@ -78,13 +91,52 @@ export class BlockchainService {
         method: 'eth_requestAccounts' 
       });
 
+      // Check if connected to Ganache network (Chain ID 1337)
+      const chainId = await window.ethereum.request({ method: 'eth_chainId' });
+      console.log('Connected to Chain ID:', chainId);
+      
+      if (chainId !== GANACHE_CHAIN_ID_HEX) {
+        // Try to switch to Ganache network
+        try {
+          await window.ethereum.request({
+            method: 'wallet_switchEthereumChain',
+            params: [{ chainId: GANACHE_CHAIN_ID_HEX }],
+          });
+        } catch (switchError: any) {
+          // If Ganache network not added, add it
+          if (switchError.code === 4902) {
+            await window.ethereum.request({
+              method: 'wallet_addEthereumChain',
+              params: [{
+                chainId: GANACHE_CHAIN_ID_HEX,
+                chainName: 'Ganache Local',
+                nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
+                rpcUrls: [GANACHE_RPC_URL],
+              }],
+            });
+          } else {
+            console.warn('Could not switch to Ganache network. Please switch manually.');
+          }
+        }
+      }
+
       this.provider = new ethers.providers.Web3Provider(window.ethereum);
       this.signer = this.provider.getSigner();
-
-      return accounts[0];
+      
+      const address = await this.signer.getAddress();
+      console.log('Connected wallet address:', address);
+      
+      return address;
     } catch (error: any) {
       throw new Error(`Failed to connect wallet: ${error.message}`);
     }
+  }
+
+  /**
+   * Check if the connected wallet is the admin wallet
+   */
+  isAdminWallet(walletAddress: string): boolean {
+    return walletAddress.toLowerCase() === ADMIN_WALLET_ADDRESS.toLowerCase();
   }
 
   async initContract(contractAddress: string): Promise<void> {

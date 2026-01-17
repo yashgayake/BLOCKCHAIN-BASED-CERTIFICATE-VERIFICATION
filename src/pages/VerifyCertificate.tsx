@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { CheckCircle, Search, Camera, Upload, XCircle, FileCheck, User, AlertCircle, X } from 'lucide-react';
+import { CheckCircle, Search, Camera, Upload, XCircle, FileCheck, User, AlertCircle, X, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -8,16 +8,22 @@ import { Navbar } from '@/components/Navbar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAppContext, StoredCertificate } from '@/contexts/AppContext';
 import { useToast } from '@/hooks/use-toast';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Html5Qrcode } from 'html5-qrcode';
+import { DEFAULT_CONTRACT_ADDRESS, Certificate } from '@/lib/blockchain';
+import { ethers } from 'ethers';
+
+interface VerificationResult {
+  isValid: boolean;
+  certificate?: Certificate;
+  localData?: StoredCertificate;
+  verifiedOnBlockchain: boolean;
+}
 
 export default function VerifyCertificate() {
   const [searchHash, setSearchHash] = useState('');
   const [isVerifying, setIsVerifying] = useState(false);
-  const [verificationResult, setVerificationResult] = useState<{
-    isValid: boolean;
-    certificate?: StoredCertificate;
-  } | null>(null);
+  const [verificationResult, setVerificationResult] = useState<VerificationResult | null>(null);
   const [showCamera, setShowCamera] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
   
@@ -35,7 +41,7 @@ export default function VerifyCertificate() {
     };
   }, []);
 
-  const verifyCertificate = (hash: string) => {
+  const verifyCertificate = async (hash: string) => {
     if (!hash.trim()) {
       toast({
         title: "Error",
@@ -47,32 +53,94 @@ export default function VerifyCertificate() {
 
     setIsVerifying(true);
 
-    // Simulate blockchain verification delay
-    setTimeout(() => {
-      const certificate = getCertificateByHash(hash);
-      
-      if (certificate) {
+    try {
+      // Connect to Ganache and verify on blockchain
+      const provider = new ethers.providers.JsonRpcProvider('http://127.0.0.1:7545');
+      const contract = new ethers.Contract(
+        DEFAULT_CONTRACT_ADDRESS,
+        [
+          "function verifyCertificateView(string _certificateHash) public view returns (bool)",
+          "function getCertificate(string _certificateHash) public view returns (string studentName, string enrollmentNumber, string course, string institution, uint256 issueYear, uint256 issueDate, string ipfsHash, address issuerAddress)"
+        ],
+        provider
+      );
+
+      // Verify certificate on blockchain
+      const isValid = await contract.verifyCertificateView(hash);
+
+      if (isValid) {
+        // Get certificate details from blockchain
+        const certData = await contract.getCertificate(hash);
+        const certificate: Certificate = {
+          studentName: certData.studentName,
+          enrollmentNumber: certData.enrollmentNumber,
+          course: certData.course,
+          institution: certData.institution,
+          issueYear: certData.issueYear.toNumber(),
+          issueDate: certData.issueDate.toNumber(),
+          certificateHash: hash,
+          ipfsHash: certData.ipfsHash,
+          issuerAddress: certData.issuerAddress
+        };
+
+        // Also get local data for photo/PDF
+        const localData = getCertificateByHash(hash);
+
         setVerificationResult({
           isValid: true,
-          certificate
+          certificate,
+          localData,
+          verifiedOnBlockchain: true
         });
+
         toast({
-          title: "Certificate Verified!",
-          description: "This certificate is valid and recorded on the blockchain.",
+          title: "✓ Certificate Verified!",
+          description: "This certificate is authentic and recorded on the blockchain.",
         });
       } else {
         setVerificationResult({
-          isValid: false
+          isValid: false,
+          verifiedOnBlockchain: true
         });
+
         toast({
-          title: "Verification Failed",
+          title: "✗ Verification Failed",
           description: "Certificate not found on the blockchain.",
           variant: "destructive",
         });
       }
+    } catch (err: any) {
+      console.error('Verification error:', err);
       
+      // Fallback to local storage
+      const localCert = getCertificateByHash(hash);
+      
+      if (localCert) {
+        setVerificationResult({
+          isValid: true,
+          localData: localCert,
+          verifiedOnBlockchain: false
+        });
+
+        toast({
+          title: "Certificate Found (Offline)",
+          description: "Verified from local records. Connect to Ganache for blockchain verification.",
+        });
+      } else {
+        setVerificationResult({
+          isValid: false,
+          verifiedOnBlockchain: false
+        });
+
+        toast({
+          title: "Verification Failed",
+          description: "Certificate not found. Ensure Ganache is running.",
+          variant: "destructive",
+        });
+      }
+    } finally {
       setIsVerifying(false);
-    }, 1500);
+    }
   };
 
   const startCameraScanner = async () => {
@@ -90,14 +158,13 @@ export default function VerifyCertificate() {
           qrbox: { width: 250, height: 250 }
         },
         (decodedText) => {
-          // QR code scanned successfully
           html5Qrcode.stop().then(() => {
             setShowCamera(false);
             setSearchHash(decodedText);
             verifyCertificate(decodedText);
           });
         },
-        () => {} // Ignore errors during scanning
+        () => {}
       );
     } catch (err: any) {
       setCameraError(err.message || "Failed to start camera");
@@ -122,11 +189,9 @@ export default function VerifyCertificate() {
 
     try {
       const html5Qrcode = new Html5Qrcode("file-scanner");
-      
       const result = await html5Qrcode.scanFile(file, true);
       setSearchHash(result);
       verifyCertificate(result);
-      
       await html5Qrcode.clear();
     } catch (err: any) {
       toast({
@@ -136,7 +201,6 @@ export default function VerifyCertificate() {
       });
     }
 
-    // Reset file input
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -159,7 +223,10 @@ export default function VerifyCertificate() {
             </div>
             <h1 className="text-3xl font-bold">Verify Certificate</h1>
             <p className="text-muted-foreground mt-2">
-              Verify any certificate authenticity using blockchain
+              Verify any certificate authenticity on the blockchain
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Contract: {DEFAULT_CONTRACT_ADDRESS.slice(0, 10)}...{DEFAULT_CONTRACT_ADDRESS.slice(-6)}
             </p>
           </div>
 
@@ -194,68 +261,98 @@ export default function VerifyCertificate() {
           {verificationResult && (
             <Card className={`mb-6 ${verificationResult.isValid ? 'border-success/50 bg-success/5' : 'border-destructive/50 bg-destructive/5'}`}>
               <CardContent className="pt-6">
-                {verificationResult.isValid && verificationResult.certificate ? (
+                {verificationResult.isValid && (verificationResult.certificate || verificationResult.localData) ? (
                   <div className="space-y-6">
                     <div className="flex items-center gap-4">
                       <div className="flex h-16 w-16 items-center justify-center rounded-full bg-success/10">
                         <CheckCircle className="h-10 w-10 text-success" />
                       </div>
                       <div>
-                        <h3 className="text-2xl font-bold text-success">Verified!</h3>
-                        <p className="text-muted-foreground">Certificate is authentic and on blockchain</p>
+                        <h3 className="text-2xl font-bold text-success">✓ VALID</h3>
+                        <p className="text-muted-foreground">
+                          {verificationResult.verifiedOnBlockchain 
+                            ? 'Certificate verified on blockchain' 
+                            : 'Verified from local records'}
+                        </p>
                       </div>
                     </div>
 
+                    {/* Certificate Details */}
                     <div className="grid gap-4 sm:grid-cols-2">
                       <div className="space-y-1">
                         <p className="text-sm text-muted-foreground">Student Name</p>
-                        <p className="font-medium">{verificationResult.certificate.studentName}</p>
+                        <p className="font-medium">
+                          {verificationResult.certificate?.studentName || verificationResult.localData?.studentName}
+                        </p>
                       </div>
                       <div className="space-y-1">
                         <p className="text-sm text-muted-foreground">Enrollment Number</p>
-                        <p className="font-medium">{verificationResult.certificate.enrollmentNumber}</p>
+                        <p className="font-medium">
+                          {verificationResult.certificate?.enrollmentNumber || verificationResult.localData?.enrollmentNumber}
+                        </p>
                       </div>
                       <div className="space-y-1">
                         <p className="text-sm text-muted-foreground">Course</p>
-                        <p className="font-medium">{verificationResult.certificate.course}</p>
+                        <p className="font-medium">
+                          {verificationResult.certificate?.course || verificationResult.localData?.course}
+                        </p>
                       </div>
                       <div className="space-y-1">
                         <p className="text-sm text-muted-foreground">Institution</p>
-                        <p className="font-medium">{verificationResult.certificate.institution}</p>
+                        <p className="font-medium">
+                          {verificationResult.certificate?.institution || verificationResult.localData?.institution}
+                        </p>
                       </div>
                       <div className="space-y-1">
                         <p className="text-sm text-muted-foreground">Issue Year</p>
-                        <p className="font-medium">{verificationResult.certificate.issueYear}</p>
+                        <p className="font-medium">
+                          {verificationResult.certificate?.issueYear || verificationResult.localData?.issueYear}
+                        </p>
                       </div>
                       <div className="space-y-1">
                         <p className="text-sm text-muted-foreground">Issue Date</p>
-                        <p className="font-medium">{new Date(verificationResult.certificate.issueDate).toLocaleDateString()}</p>
+                        <p className="font-medium">
+                          {verificationResult.certificate 
+                            ? new Date(verificationResult.certificate.issueDate * 1000).toLocaleDateString()
+                            : verificationResult.localData 
+                              ? new Date(verificationResult.localData.issueDate).toLocaleDateString()
+                              : 'N/A'}
+                        </p>
                       </div>
                     </div>
 
                     <div>
                       <p className="text-sm text-muted-foreground mb-1">Certificate Hash</p>
                       <p className="font-mono text-xs break-all bg-muted/50 p-2 rounded">
-                        {verificationResult.certificate.certificateHash}
+                        {verificationResult.certificate?.certificateHash || verificationResult.localData?.certificateHash}
                       </p>
                     </div>
 
+                    {verificationResult.certificate?.issuerAddress && (
+                      <div>
+                        <p className="text-sm text-muted-foreground mb-1">Issuer Wallet Address</p>
+                        <p className="font-mono text-xs break-all bg-muted/50 p-2 rounded">
+                          {verificationResult.certificate.issuerAddress}
+                        </p>
+                      </div>
+                    )}
+
                     <div className="flex flex-wrap gap-2">
-                      {verificationResult.certificate.studentPhoto && (
+                      {verificationResult.localData?.studentPhoto && (
                         <Dialog>
-                          <Button variant="outline" size="sm" className="gap-2" asChild>
-                            <label>
+                          <DialogTrigger asChild>
+                            <Button variant="outline" size="sm" className="gap-2">
                               <User className="h-4 w-4" />
                               View Student Photo
-                            </label>
-                          </Button>
+                            </Button>
+                          </DialogTrigger>
                           <DialogContent>
                             <DialogHeader>
                               <DialogTitle>Student Photo</DialogTitle>
                             </DialogHeader>
                             <div className="flex justify-center py-4">
                               <img
-                                src={verificationResult.certificate.studentPhoto}
+                                src={verificationResult.localData.studentPhoto}
                                 alt="Student"
                                 className="max-w-full max-h-[400px] rounded-lg object-contain"
                               />
@@ -264,12 +361,12 @@ export default function VerifyCertificate() {
                         </Dialog>
                       )}
 
-                      {verificationResult.certificate.certificatePdf && (
+                      {verificationResult.localData?.certificatePdf && (
                         <Button
                           variant="outline"
                           size="sm"
                           className="gap-2"
-                          onClick={() => window.open(verificationResult.certificate?.certificatePdf, '_blank')}
+                          onClick={() => window.open(verificationResult.localData?.certificatePdf, '_blank')}
                         >
                           <FileCheck className="h-4 w-4" />
                           View Original PDF
@@ -286,9 +383,9 @@ export default function VerifyCertificate() {
                     <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-destructive/10">
                       <XCircle className="h-10 w-10 text-destructive" />
                     </div>
-                    <h3 className="text-2xl font-bold text-destructive mb-2">Not Found</h3>
+                    <h3 className="text-2xl font-bold text-destructive mb-2">✗ INVALID</h3>
                     <p className="text-muted-foreground mb-4">
-                      This certificate was not found on the blockchain. It may be invalid or forged.
+                      This certificate was NOT found on the blockchain. It may be invalid or forged.
                     </p>
                     <Button onClick={resetVerification} variant="outline">
                       Try Another Certificate
@@ -341,8 +438,17 @@ export default function VerifyCertificate() {
                       disabled={isVerifying}
                       className="w-full gap-2"
                     >
-                      <Search className="h-4 w-4" />
-                      {isVerifying ? 'Verifying...' : 'Verify Certificate'}
+                      {isVerifying ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Verifying on Blockchain...
+                        </>
+                      ) : (
+                        <>
+                          <Search className="h-4 w-4" />
+                          Verify Certificate
+                        </>
+                      )}
                     </Button>
                   </TabsContent>
 
