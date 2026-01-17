@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Shield, Wallet, AlertCircle, CheckCircle2, UserPlus, FileCheck, List, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -11,11 +11,13 @@ import { RegisterStudent } from '@/components/admin/RegisterStudent';
 import { IssueCertificate } from '@/components/admin/IssueCertificate';
 import { ViewAllRecords } from '@/components/admin/ViewAllRecords';
 import { cn } from '@/lib/utils';
+import { DEFAULT_CONTRACT_ADDRESS, ADMIN_WALLET_ADDRESS } from '@/lib/blockchain';
 
 type AdminAction = 'register' | 'issue' | 'records' | null;
 
 export default function AdminPortal() {
-  const [contractAddress, setContractAddress] = useState('');
+  // Pre-fill with deployed contract address
+  const [contractAddress, setContractAddress] = useState(DEFAULT_CONTRACT_ADDRESS);
   const [currentAction, setCurrentAction] = useState<AdminAction>(null);
   const { isConnected, walletAddress, contractAddress: connectedContract, isAdmin, isLoading, error, connectWallet, initContract, disconnect } = useBlockchain();
   const { toast } = useToast();
@@ -165,7 +167,7 @@ export default function AdminPortal() {
     );
   }
 
-  // Not admin
+  // Not admin - show unauthorized message
   if (!isAdmin) {
     return (
       <div className="min-h-screen bg-background">
@@ -177,18 +179,28 @@ export default function AdminPortal() {
                 <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-destructive/10">
                   <AlertCircle className="h-6 w-6 text-destructive" />
                 </div>
-                <CardTitle className="text-xl">Access Denied</CardTitle>
+                <CardTitle className="text-xl text-destructive">⚠️ Unauthorized Admin</CardTitle>
                 <CardDescription>
-                  This wallet is not the admin of the connected contract.
+                  This wallet is not authorized to access admin functions.
                 </CardDescription>
               </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground text-center mb-4">
-                  Connected wallet: <span className="font-mono break-all">{walletAddress}</span>
+              <CardContent className="space-y-4">
+                <div className="rounded-lg bg-muted p-4 space-y-2">
+                  <p className="text-sm text-muted-foreground">
+                    <strong>Connected Wallet:</strong>
+                  </p>
+                  <p className="font-mono text-xs break-all text-foreground">{walletAddress}</p>
+                  <p className="text-sm text-muted-foreground mt-3">
+                    <strong>Required Admin Wallet:</strong>
+                  </p>
+                  <p className="font-mono text-xs break-all text-foreground">{ADMIN_WALLET_ADDRESS}</p>
+                </div>
+                <p className="text-sm text-muted-foreground text-center">
+                  Please connect with the admin wallet that deployed the smart contract.
                 </p>
                 <Button onClick={disconnect} variant="outline" className="w-full gap-2">
                   <LogOut className="h-4 w-4" />
-                  Disconnect & Try Another Wallet
+                  Disconnect & Try Admin Wallet
                 </Button>
               </CardContent>
             </Card>
