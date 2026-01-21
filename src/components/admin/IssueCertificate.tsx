@@ -104,6 +104,47 @@ export function IssueCertificate() {
     }
   };
 
+  // Send email notification to student
+  const sendEmailNotification = async (
+    studentEmail: string,
+    certificateHash: string,
+    transactionHash: string
+  ) => {
+    try {
+      console.log("Sending email notification to:", studentEmail);
+      const { data, error } = await supabase.functions.invoke('send-certificate-email', {
+        body: {
+          studentEmail,
+          studentName: formData.studentName,
+          enrollmentNumber: formData.enrollmentNumber,
+          course: formData.course,
+          institution: formData.institution,
+          issueYear: parseInt(formData.issueYear),
+          certificateHash,
+          transactionHash
+        }
+      });
+
+      if (error) {
+        console.error("Email send error:", error);
+        toast({
+          title: "Email Warning",
+          description: "Certificate issued but email notification failed.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      console.log("Email sent successfully:", data);
+      toast({
+        title: "📧 Email Sent!",
+        description: `Notification sent to ${studentEmail}`,
+      });
+    } catch (err: any) {
+      console.error("Email notification error:", err);
+    }
+  };
+
   const handleIssue = async () => {
     if (!formData.enrollmentNumber || !formData.studentName || !formData.course || !formData.institution) {
       toast({ title: "Error", description: "Please fill all required fields", variant: "destructive" });
@@ -143,6 +184,11 @@ export function IssueCertificate() {
         studentPhoto,
         certificatePdf
       });
+
+      // Send email notification if student has email
+      if (student.email) {
+        await sendEmailNotification(student.email, certHash, receipt.transactionHash);
+      }
 
       setResult({ certificateHash: certHash, transactionHash: receipt.transactionHash });
       setAiStep(3);

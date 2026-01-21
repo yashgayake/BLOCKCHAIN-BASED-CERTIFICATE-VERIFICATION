@@ -1,1 +1,7 @@
 project_id = "bvztavnjigufpyyytskg"
+
+[functions.extract-certificate]
+verify_jwt = false
+
+[functions.send-certificate-email]
+verify_jwt = false
