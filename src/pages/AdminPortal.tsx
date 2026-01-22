@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Shield, Wallet, AlertCircle, CheckCircle2, UserPlus, FileCheck, List, LogOut } from 'lucide-react';
+import { Shield, Wallet, AlertCircle, CheckCircle2, UserPlus, FileCheck, List, LogOut, Ban } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -10,10 +10,11 @@ import { useToast } from '@/hooks/use-toast';
 import { RegisterStudent } from '@/components/admin/RegisterStudent';
 import { IssueCertificate } from '@/components/admin/IssueCertificate';
 import { ViewAllRecords } from '@/components/admin/ViewAllRecords';
+import { RevokeCertificate } from '@/components/admin/RevokeCertificate';
 import { cn } from '@/lib/utils';
 import { DEFAULT_CONTRACT_ADDRESS, ADMIN_WALLET_ADDRESS } from '@/lib/blockchain';
 
-type AdminAction = 'register' | 'issue' | 'records' | null;
+type AdminAction = 'register' | 'issue' | 'records' | 'revoke' | null;
 
 export default function AdminPortal() {
   // Pre-fill with deployed contract address
@@ -75,6 +76,12 @@ export default function AdminPortal() {
       icon: FileCheck,
       title: 'Issue Certificate',
       description: 'Issue a new certificate with AI extraction or manual entry'
+    },
+    {
+      id: 'revoke' as const,
+      icon: Ban,
+      title: 'Revoke Certificate',
+      description: 'Revoke an issued certificate to mark it as invalid'
     },
     {
       id: 'records' as const,
@@ -255,7 +262,7 @@ export default function AdminPortal() {
 
         {/* Action Selection or Active Action */}
         {currentAction === null ? (
-          <div className="grid gap-6 md:grid-cols-3">
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
             {actions.map((action) => {
               const Icon = action.icon;
               return (
@@ -291,6 +298,7 @@ export default function AdminPortal() {
             
             {currentAction === 'register' && <RegisterStudent />}
             {currentAction === 'issue' && <IssueCertificate />}
+            {currentAction === 'revoke' && <RevokeCertificate />}
             {currentAction === 'records' && <ViewAllRecords />}
           </div>
         )}

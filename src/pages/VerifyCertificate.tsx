@@ -1,23 +1,26 @@
 import { useState, useRef, useEffect } from 'react';
-import { CheckCircle, Search, Camera, Upload, XCircle, FileCheck, User, AlertCircle, X, Loader2 } from 'lucide-react';
+import { CheckCircle, Search, Camera, Upload, XCircle, FileCheck, User, AlertCircle, X, Loader2, Ban } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Navbar } from '@/components/Navbar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useAppContext, StoredCertificate } from '@/contexts/AppContext';
+import { useAppContext, StoredCertificate, RevokedCertificate } from '@/contexts/AppContext';
 import { useToast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Html5Qrcode } from 'html5-qrcode';
 import { DEFAULT_CONTRACT_ADDRESS, Certificate } from '@/lib/blockchain';
 import { ethers } from 'ethers';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 interface VerificationResult {
   isValid: boolean;
   certificate?: Certificate;
   localData?: StoredCertificate;
   verifiedOnBlockchain: boolean;
+  isRevoked?: boolean;
+  revokedInfo?: RevokedCertificate;
 }
 
 export default function VerifyCertificate() {
@@ -30,7 +33,7 @@ export default function VerifyCertificate() {
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
-  const { getCertificateByHash } = useAppContext();
+  const { getCertificateByHash, isRevoked, getRevokedInfo } = useAppContext();
   const { toast } = useToast();
 
   useEffect(() => {
@@ -66,9 +69,9 @@ export default function VerifyCertificate() {
       );
 
       // Verify certificate on blockchain
-      const isValid = await contract.verifyCertificateView(hash);
+      const isValidOnChain = await contract.verifyCertificateView(hash);
 
-      if (isValid) {
+      if (isValidOnChain) {
         // Get certificate details from blockchain
         const certData = await contract.getCertificate(hash);
         const certificate: Certificate = {
@@ -86,17 +89,38 @@ export default function VerifyCertificate() {
         // Also get local data for photo/PDF
         const localData = getCertificateByHash(hash);
 
-        setVerificationResult({
-          isValid: true,
-          certificate,
-          localData,
-          verifiedOnBlockchain: true
-        });
+        // Check if certificate is revoked
+        const revoked = isRevoked(hash);
+        const revokedInfo = revoked ? getRevokedInfo(hash) : undefined;
 
-        toast({
-          title: "✓ Certificate Verified!",
-          description: "This certificate is authentic and recorded on the blockchain.",
-        });
+        if (revoked) {
+          setVerificationResult({
+            isValid: false,
+            certificate,
+            localData,
+            verifiedOnBlockchain: true,
+            isRevoked: true,
+            revokedInfo
+          });
+
+          toast({
+            title: "⚠️ Certificate Revoked",
+            description: "This certificate has been revoked and is no longer valid.",
+            variant: "destructive",
+          });
+        } else {
+          setVerificationResult({
+            isValid: true,
+            certificate,
+            localData,
+            verifiedOnBlockchain: true
+          });
+
+          toast({
+            title: "✓ Certificate Verified!",
+            description: "This certificate is authentic and recorded on the blockchain.",
+          });
+        }
       } else {
         setVerificationResult({
           isValid: false,
@@ -259,9 +283,58 @@ export default function VerifyCertificate() {
 
           {/* Verification Result */}
           {verificationResult && (
-            <Card className={`mb-6 ${verificationResult.isValid ? 'border-success/50 bg-success/5' : 'border-destructive/50 bg-destructive/5'}`}>
+            <Card className={`mb-6 ${verificationResult.isValid ? 'border-success/50 bg-success/5' : verificationResult.isRevoked ? 'border-warning/50 bg-warning/5' : 'border-destructive/50 bg-destructive/5'}`}>
               <CardContent className="pt-6">
-                {verificationResult.isValid && (verificationResult.certificate || verificationResult.localData) ? (
+                {verificationResult.isRevoked && verificationResult.certificate ? (
+                  <div className="space-y-6">
+                    <div className="flex items-center gap-4">
+                      <div className="flex h-16 w-16 items-center justify-center rounded-full bg-warning/10">
+                        <Ban className="h-10 w-10 text-warning" />
+                      </div>
+                      <div>
+                        <h3 className="text-2xl font-bold text-warning">⚠️ REVOKED</h3>
+                        <p className="text-muted-foreground">
+                          This certificate has been revoked
+                        </p>
+                      </div>
+                    </div>
+
+                    {verificationResult.revokedInfo && (
+                      <Alert variant="destructive">
+                        <Ban className="h-4 w-4" />
+                        <AlertTitle>Revocation Details</AlertTitle>
+                        <AlertDescription>
+                          <p><strong>Revoked On:</strong> {new Date(verificationResult.revokedInfo.revokedAt).toLocaleString()}</p>
+                          <p><strong>Reason:</strong> {verificationResult.revokedInfo.reason}</p>
+                        </AlertDescription>
+                      </Alert>
+                    )}
+
+                    {/* Certificate Details */}
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div className="space-y-1">
+                        <p className="text-sm text-muted-foreground">Student Name</p>
+                        <p className="font-medium">{verificationResult.certificate.studentName}</p>
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-sm text-muted-foreground">Enrollment Number</p>
+                        <p className="font-medium">{verificationResult.certificate.enrollmentNumber}</p>
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-sm text-muted-foreground">Course</p>
+                        <p className="font-medium">{verificationResult.certificate.course}</p>
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-sm text-muted-foreground">Institution</p>
+                        <p className="font-medium">{verificationResult.certificate.institution}</p>
+                      </div>
+                    </div>
+
+                    <Button onClick={resetVerification} variant="outline" className="w-full">
+                      Verify Another Certificate
+                    </Button>
+                  </div>
+                ) : verificationResult.isValid && (verificationResult.certificate || verificationResult.localData) ? (
                   <div className="space-y-6">
                     <div className="flex items-center gap-4">
                       <div className="flex h-16 w-16 items-center justify-center rounded-full bg-success/10">
