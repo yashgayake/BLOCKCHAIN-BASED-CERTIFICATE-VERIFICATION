@@ -44,6 +44,51 @@ export default function VerifyCertificate() {
     };
   }, []);
 
+  // Start camera when dialog opens
+  useEffect(() => {
+    if (showCamera) {
+      // Small delay to ensure DOM is ready
+      const timer = setTimeout(() => {
+        initializeScanner();
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [showCamera]);
+
+  const initializeScanner = async () => {
+    setCameraError(null);
+    
+    try {
+      const readerElement = document.getElementById("qr-reader");
+      if (!readerElement) {
+        setCameraError("Scanner element not found");
+        return;
+      }
+
+      const html5Qrcode = new Html5Qrcode("qr-reader");
+      scannerRef.current = html5Qrcode;
+
+      await html5Qrcode.start(
+        { facingMode: "environment" },
+        {
+          fps: 10,
+          qrbox: { width: 250, height: 250 }
+        },
+        (decodedText) => {
+          html5Qrcode.stop().then(() => {
+            setShowCamera(false);
+            setSearchHash(decodedText);
+            verifyCertificate(decodedText);
+          });
+        },
+        () => {}
+      );
+    } catch (err: any) {
+      console.error("Camera error:", err);
+      setCameraError(err.message || "Failed to start camera. Please allow camera access.");
+    }
+  };
+
   const verifyCertificate = async (hash: string) => {
     if (!hash.trim()) {
       toast({
@@ -167,33 +212,9 @@ export default function VerifyCertificate() {
     }
   };
 
-  const startCameraScanner = async () => {
+  const startCameraScanner = () => {
     setShowCamera(true);
     setCameraError(null);
-
-    try {
-      const html5Qrcode = new Html5Qrcode("qr-reader");
-      scannerRef.current = html5Qrcode;
-
-      await html5Qrcode.start(
-        { facingMode: "environment" },
-        {
-          fps: 10,
-          qrbox: { width: 250, height: 250 }
-        },
-        (decodedText) => {
-          html5Qrcode.stop().then(() => {
-            setShowCamera(false);
-            setSearchHash(decodedText);
-            verifyCertificate(decodedText);
-          });
-        },
-        () => {}
-      );
-    } catch (err: any) {
-      setCameraError(err.message || "Failed to start camera");
-      setShowCamera(false);
-    }
   };
 
   const stopCameraScanner = async () => {
