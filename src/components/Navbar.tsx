@@ -3,6 +3,7 @@ import { Shield, GraduationCap, CheckCircle, Menu, X } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { ThemeToggle } from '@/components/ThemeToggle';
 
 export function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -16,13 +17,15 @@ export function Navbar() {
   ];
 
   return (
-    <nav className="sticky top-0 z-50 w-full border-b border-border/50 bg-background/80 backdrop-blur-xl">
+    <nav className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur-xl supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 items-center justify-between">
-        <Link to="/" className="flex items-center gap-2">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary">
+        <Link to="/" className="flex items-center gap-3 group">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-accent shadow-lg shadow-primary/25 transition-transform group-hover:scale-105">
             <Shield className="h-5 w-5 text-primary-foreground" />
           </div>
-          <span className="text-lg font-bold">CertChain</span>
+          <span className="text-xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+            CertChain
+          </span>
         </Link>
 
         {/* Desktop Navigation */}
@@ -35,10 +38,10 @@ export function Navbar() {
                 key={link.to}
                 to={link.to}
                 className={cn(
-                  "flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors",
+                  "flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-all duration-200",
                   isActive
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                    ? "bg-primary text-primary-foreground shadow-md shadow-primary/25"
+                    : "text-muted-foreground hover:bg-accent/10 hover:text-foreground"
                 )}
               >
                 <Icon className="h-4 w-4" />
@@ -46,22 +49,27 @@ export function Navbar() {
               </Link>
             );
           })}
+          <div className="ml-2 pl-2 border-l border-border">
+            <ThemeToggle />
+          </div>
         </div>
 
         {/* Mobile Menu Button */}
-        <Button
-          variant="ghost"
-          size="icon"
-          className="md:hidden"
-          onClick={() => setIsMenuOpen(!isMenuOpen)}
-        >
-          {isMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-        </Button>
+        <div className="flex items-center gap-2 md:hidden">
+          <ThemeToggle />
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setIsMenuOpen(!isMenuOpen)}
+          >
+            {isMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </Button>
+        </div>
       </div>
 
       {/* Mobile Navigation */}
       {isMenuOpen && (
-        <div className="border-t border-border/50 bg-background p-4 md:hidden">
+        <div className="border-t border-border/40 bg-background/95 backdrop-blur-xl p-4 md:hidden animate-in slide-in-from-top-2">
           <div className="flex flex-col gap-2">
             {navLinks.map((link) => {
               const Icon = link.icon;
@@ -72,13 +80,13 @@ export function Navbar() {
                   to={link.to}
                   onClick={() => setIsMenuOpen(false)}
                   className={cn(
-                    "flex items-center gap-2 rounded-lg px-4 py-3 text-sm font-medium transition-colors",
+                    "flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-all",
                     isActive
-                      ? "bg-primary text-primary-foreground"
-                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                      ? "bg-primary text-primary-foreground shadow-md"
+                      : "text-muted-foreground hover:bg-accent/10 hover:text-foreground"
                   )}
                 >
-                  <Icon className="h-4 w-4" />
+                  <Icon className="h-5 w-5" />
                   {link.label}
                 </Link>
               );

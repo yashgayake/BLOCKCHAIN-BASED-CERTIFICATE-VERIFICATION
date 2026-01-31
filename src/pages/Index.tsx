@@ -53,41 +53,66 @@ const Index = () => {
       
       {/* Hero Section */}
       <section className="relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-accent/5 to-background" />
-        <div className="absolute -top-40 -right-40 h-80 w-80 rounded-full bg-primary/10 blur-3xl" />
-        <div className="absolute -bottom-40 -left-40 h-80 w-80 rounded-full bg-accent/10 blur-3xl" />
+        {/* Animated Background */}
+        <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-accent/5 to-background" />
+        <div className="absolute -top-40 -right-40 h-96 w-96 rounded-full bg-primary/20 blur-3xl animate-float" />
+        <div className="absolute -bottom-40 -left-40 h-96 w-96 rounded-full bg-accent/20 blur-3xl animate-float" style={{ animationDelay: '-3s' }} />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-64 w-64 rounded-full bg-success/10 blur-3xl animate-float" style={{ animationDelay: '-1.5s' }} />
         
-        <div className="container relative py-24 md:py-32">
-          <div className="mx-auto max-w-3xl text-center">
-            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-border/50 bg-card/50 px-4 py-2 text-sm backdrop-blur-sm">
+        {/* Grid Pattern Overlay */}
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,hsl(var(--border)/0.1)_1px,transparent_1px),linear-gradient(to_bottom,hsl(var(--border)/0.1)_1px,transparent_1px)] bg-[size:4rem_4rem]" />
+        
+        <div className="container relative py-28 md:py-40">
+          <div className="mx-auto max-w-4xl text-center">
+            {/* Badge */}
+            <div className="mb-8 inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/5 px-5 py-2.5 text-sm font-medium backdrop-blur-sm animate-glow">
               <Shield className="h-4 w-4 text-primary" />
-              <span>Blockchain-Powered Certificate Verification</span>
+              <span className="text-foreground">Blockchain-Powered Certificate Verification</span>
             </div>
             
-            <h1 className="mb-6 text-4xl font-bold tracking-tight md:text-6xl">
+            {/* Hero Title */}
+            <h1 className="mb-8 text-5xl font-bold tracking-tight md:text-7xl">
               <span className="gradient-text">CertChain</span>
               <br />
               <span className="text-foreground">Certificate Verification</span>
             </h1>
             
-            <p className="mb-8 text-lg text-muted-foreground md:text-xl">
+            {/* Description */}
+            <p className="mx-auto mb-10 max-w-2xl text-lg text-muted-foreground md:text-xl leading-relaxed">
               A decentralized, tamper-proof system for issuing and verifying academic certificates 
               using Ethereum blockchain and MetaMask wallet integration.
             </p>
             
+            {/* CTA Buttons */}
             <div className="flex flex-col gap-4 sm:flex-row sm:justify-center">
-              <Button asChild size="lg" className="gap-2">
+              <Button asChild size="lg" className="gap-2 h-12 px-8 text-base shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30 transition-all">
                 <Link to="/verify">
                   Verify Certificate
-                  <ArrowRight className="h-4 w-4" />
+                  <ArrowRight className="h-5 w-5" />
                 </Link>
               </Button>
-              <Button asChild variant="outline" size="lg" className="gap-2">
+              <Button asChild variant="outline" size="lg" className="gap-2 h-12 px-8 text-base border-2 hover:bg-accent/10">
                 <Link to="/admin">
-                  <Shield className="h-4 w-4" />
+                  <Shield className="h-5 w-5" />
                   Admin Access
                 </Link>
               </Button>
+            </div>
+
+            {/* Stats */}
+            <div className="mt-16 grid grid-cols-3 gap-8 max-w-lg mx-auto">
+              <div className="text-center">
+                <div className="text-3xl font-bold text-primary">100%</div>
+                <div className="text-sm text-muted-foreground">Secure</div>
+              </div>
+              <div className="text-center">
+                <div className="text-3xl font-bold text-primary">24/7</div>
+                <div className="text-sm text-muted-foreground">Verification</div>
+              </div>
+              <div className="text-center">
+                <div className="text-3xl font-bold text-primary">∞</div>
+                <div className="text-sm text-muted-foreground">Immutable</div>
+              </div>
             </div>
           </div>
         </div>
@@ -127,32 +152,34 @@ const Index = () => {
       </section>
 
       {/* Portals Section */}
-      <section className="py-16">
-        <div className="container">
-          <div className="mx-auto max-w-2xl text-center mb-12">
-            <h2 className="text-3xl font-bold mb-4">Access Portals</h2>
-            <p className="text-muted-foreground">
+      <section className="py-20 relative">
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-primary/5 to-transparent" />
+        <div className="container relative">
+          <div className="mx-auto max-w-2xl text-center mb-14">
+            <h2 className="text-3xl font-bold mb-4 md:text-4xl">Access Portals</h2>
+            <p className="text-muted-foreground text-lg">
               Choose your portal to access the certificate verification system
             </p>
           </div>
           
-          <div className="grid gap-6 md:grid-cols-3">
+          <div className="grid gap-8 md:grid-cols-3">
             {portals.map((portal, index) => {
               const Icon = portal.icon;
               return (
                 <Link key={index} to={portal.to} className="group">
-                  <Card className="glass-card h-full border-border/50 transition-all duration-300 hover:shadow-xl hover:-translate-y-1">
-                    <CardHeader>
-                      <div className={`mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br ${portal.color}`}>
-                        <Icon className="h-8 w-8 text-primary-foreground" />
+                  <Card className="glass-card h-full border-border/30 transition-all duration-500 hover:shadow-2xl hover:-translate-y-2 hover:border-primary/30 overflow-hidden">
+                    <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                    <CardHeader className="relative">
+                      <div className={`mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br ${portal.color} shadow-xl shadow-primary/20 transition-transform group-hover:scale-110 group-hover:rotate-3`}>
+                        <Icon className="h-10 w-10 text-primary-foreground" />
                       </div>
-                      <CardTitle className="text-xl flex items-center gap-2">
+                      <CardTitle className="text-2xl flex items-center gap-2">
                         {portal.title}
-                        <ArrowRight className="h-4 w-4 opacity-0 transition-all group-hover:opacity-100 group-hover:translate-x-1" />
+                        <ArrowRight className="h-5 w-5 opacity-0 -translate-x-2 transition-all group-hover:opacity-100 group-hover:translate-x-0" />
                       </CardTitle>
                     </CardHeader>
-                    <CardContent>
-                      <CardDescription className="text-base">
+                    <CardContent className="relative">
+                      <CardDescription className="text-base leading-relaxed">
                         {portal.description}
                       </CardDescription>
                     </CardContent>
@@ -165,16 +192,19 @@ const Index = () => {
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-border/50 bg-card/30 py-8">
+      <footer className="border-t border-border/30 bg-card/50 py-10">
         <div className="container text-center">
-          <div className="flex items-center justify-center gap-2 mb-4">
-            <Shield className="h-6 w-6 text-primary" />
-            <span className="text-lg font-bold">CertChain</span>
+          <div className="flex items-center justify-center gap-3 mb-4">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-accent shadow-lg">
+              <Shield className="h-5 w-5 text-primary-foreground" />
+            </div>
+            <span className="text-xl font-bold gradient-text">CertChain</span>
           </div>
           <p className="text-sm text-muted-foreground">
             Final Year Project - Blockchain Based Certificate Verification System
           </p>
-          <p className="text-xs text-muted-foreground mt-2">
+          <p className="text-xs text-muted-foreground mt-3 flex items-center justify-center gap-2">
+            <span className="inline-block h-2 w-2 rounded-full bg-success animate-pulse" />
             Powered by Ethereum Blockchain • MetaMask • Ganache
           </p>
         </div>
