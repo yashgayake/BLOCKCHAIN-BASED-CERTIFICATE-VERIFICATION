@@ -104,12 +104,29 @@ export function IssueCertificate() {
     }
   };
 
+  // Validate email format
+  const isValidEmail = (email: string): boolean => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
   // Send email notification to student
   const sendEmailNotification = async (
     studentEmail: string,
     certificateHash: string,
     transactionHash: string
   ) => {
+    // Skip if email is invalid
+    if (!isValidEmail(studentEmail)) {
+      console.warn("Skipping email - invalid format:", studentEmail);
+      toast({
+        title: "Email Skipped",
+        description: `Student email "${studentEmail}" is not a valid email address.`,
+        variant: "destructive"
+      });
+      return;
+    }
+
     try {
       console.log("Sending email notification to:", studentEmail);
       const { data, error } = await supabase.functions.invoke('send-certificate-email', {

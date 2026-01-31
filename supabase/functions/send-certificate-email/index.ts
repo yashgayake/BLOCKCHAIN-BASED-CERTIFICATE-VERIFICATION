@@ -40,6 +40,22 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log("Sending certificate email to:", studentEmail);
 
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!studentEmail || !emailRegex.test(studentEmail)) {
+      console.error("Invalid email format:", studentEmail);
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: `Invalid email format: "${studentEmail}". Please use a valid email address.` 
+        }),
+        {
+          status: 400,
+          headers: { "Content-Type": "application/json", ...corsHeaders },
+        }
+      );
+    }
+
     // Verification URL
     const verifyUrl = `https://chain-certify-hub.lovable.app/verify?hash=${certificateHash}`;
 
