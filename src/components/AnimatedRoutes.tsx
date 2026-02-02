@@ -1,10 +1,13 @@
 import { Routes, Route, useLocation } from "react-router-dom";
 import { AnimatePresence } from "framer-motion";
 import { PageTransition } from "@/components/PageTransition";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
 import Index from "@/pages/Index";
 import AdminPortal from "@/pages/AdminPortal";
 import StudentPortal from "@/pages/StudentPortal";
 import VerifyCertificate from "@/pages/VerifyCertificate";
+import Auth from "@/pages/Auth";
+import Unauthorized from "@/pages/Unauthorized";
 import NotFound from "@/pages/NotFound";
 
 export function AnimatedRoutes() {
@@ -22,10 +25,20 @@ export function AnimatedRoutes() {
           }
         />
         <Route
+          path="/auth"
+          element={
+            <PageTransition>
+              <Auth />
+            </PageTransition>
+          }
+        />
+        <Route
           path="/admin"
           element={
             <PageTransition>
-              <AdminPortal />
+              <ProtectedRoute requiredRole="admin">
+                <AdminPortal />
+              </ProtectedRoute>
             </PageTransition>
           }
         />
@@ -33,7 +46,9 @@ export function AnimatedRoutes() {
           path="/student"
           element={
             <PageTransition>
-              <StudentPortal />
+              <ProtectedRoute requiredRole="student">
+                <StudentPortal />
+              </ProtectedRoute>
             </PageTransition>
           }
         />
@@ -42,6 +57,14 @@ export function AnimatedRoutes() {
           element={
             <PageTransition>
               <VerifyCertificate />
+            </PageTransition>
+          }
+        />
+        <Route
+          path="/unauthorized"
+          element={
+            <PageTransition>
+              <Unauthorized />
             </PageTransition>
           }
         />

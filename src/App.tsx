@@ -6,6 +6,7 @@ import { BrowserRouter } from "react-router-dom";
 import { BlockchainProvider } from "@/contexts/BlockchainContext";
 import { AppProvider } from "@/contexts/AppContext";
 import { ThemeProvider } from "@/components/ThemeProvider";
+import { AuthProvider } from "@/hooks/useAuth";
 import { AnimatedRoutes } from "@/components/AnimatedRoutes";
 
 const queryClient = new QueryClient();
@@ -14,15 +15,17 @@ const App = () => (
   <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <BlockchainProvider>
-          <AppProvider>
-            <Toaster />
-            <Sonner />
-            <BrowserRouter>
-              <AnimatedRoutes />
-            </BrowserRouter>
-          </AppProvider>
-        </BlockchainProvider>
+        <AuthProvider>
+          <BlockchainProvider>
+            <AppProvider>
+              <Toaster />
+              <Sonner />
+              <BrowserRouter>
+                <AnimatedRoutes />
+              </BrowserRouter>
+            </AppProvider>
+          </BlockchainProvider>
+        </AuthProvider>
       </TooltipProvider>
     </QueryClientProvider>
   </ThemeProvider>
