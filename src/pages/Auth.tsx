@@ -29,12 +29,14 @@ export default function Auth() {
 
   const from = (location.state as any)?.from?.pathname || '/';
 
-  // Redirect if already authenticated
+  // Redirect if already authenticated - use stable reference
   useEffect(() => {
     if (user) {
-      navigate(from, { replace: true });
+      // Avoid redirecting back to auth page
+      const redirectTo = from === '/auth' ? '/' : from;
+      navigate(redirectTo, { replace: true });
     }
-  }, [user, navigate, from]);
+  }, [user, navigate]); // Remove 'from' from deps to prevent infinite loop
 
   const validateForm = () => {
     const newErrors: typeof errors = {};
