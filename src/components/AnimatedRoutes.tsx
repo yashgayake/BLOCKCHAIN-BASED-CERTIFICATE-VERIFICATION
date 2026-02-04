@@ -7,6 +7,7 @@ import AdminPortal from "@/pages/AdminPortal";
 import StudentPortal from "@/pages/StudentPortal";
 import VerifyCertificate from "@/pages/VerifyCertificate";
 import Auth from "@/pages/Auth";
+import ResetPassword from "@/pages/ResetPassword";
 import Unauthorized from "@/pages/Unauthorized";
 import NotFound from "@/pages/NotFound";
 
@@ -29,6 +30,14 @@ export function AnimatedRoutes() {
           element={
             <PageTransition>
               <Auth />
+            </PageTransition>
+          }
+        />
+        <Route
+          path="/reset-password"
+          element={
+            <PageTransition>
+              <ResetPassword />
             </PageTransition>
           }
         />
