@@ -15,6 +15,8 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signUp: (email: string, password: string, fullName: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
+  resetPassword: (email: string) => Promise<{ error: Error | null }>;
+  updatePassword: (newPassword: string) => Promise<{ error: Error | null }>;
   hasRole: (role: AppRole) => boolean;
 }
 
@@ -112,6 +114,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setRoles([]);
   };
 
+  const resetPassword = async (email: string) => {
+    const redirectUrl = `${window.location.origin}/reset-password`;
+    
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: redirectUrl,
+    });
+    return { error: error as Error | null };
+  };
+
+  const updatePassword = async (newPassword: string) => {
+    const { error } = await supabase.auth.updateUser({
+      password: newPassword,
+    });
+    return { error: error as Error | null };
+  };
+
   const hasRole = useCallback((role: AppRole) => {
     return roles.includes(role);
   }, [roles]);
@@ -127,6 +145,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     signIn,
     signUp,
     signOut,
+    resetPassword,
+    updatePassword,
     hasRole,
   };
 
