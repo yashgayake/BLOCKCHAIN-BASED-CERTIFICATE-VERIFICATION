@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Shield, Wallet, AlertCircle, CheckCircle2, UserPlus, FileCheck, List, LogOut, Ban } from 'lucide-react';
+import { Shield, Wallet, AlertCircle, CheckCircle2, UserPlus, FileCheck, List, LogOut, Ban, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -11,10 +11,11 @@ import { RegisterStudent } from '@/components/admin/RegisterStudent';
 import { IssueCertificate } from '@/components/admin/IssueCertificate';
 import { ViewAllRecords } from '@/components/admin/ViewAllRecords';
 import { RevokeCertificate } from '@/components/admin/RevokeCertificate';
+import { UserManagement } from '@/components/admin/UserManagement';
 import { cn } from '@/lib/utils';
 import { DEFAULT_CONTRACT_ADDRESS, ADMIN_WALLET_ADDRESS } from '@/lib/blockchain';
 
-type AdminAction = 'register' | 'issue' | 'records' | 'revoke' | null;
+type AdminAction = 'register' | 'issue' | 'records' | 'revoke' | 'users' | null;
 
 export default function AdminPortal() {
   // Pre-fill with deployed contract address
@@ -88,6 +89,12 @@ export default function AdminPortal() {
       icon: List,
       title: 'View All Records',
       description: 'Browse all issued certificates and student records'
+    },
+    {
+      id: 'users' as const,
+      icon: Users,
+      title: 'User Management',
+      description: 'Manage user roles and permissions'
     }
   ];
 
@@ -300,6 +307,7 @@ export default function AdminPortal() {
             {currentAction === 'issue' && <IssueCertificate />}
             {currentAction === 'revoke' && <RevokeCertificate />}
             {currentAction === 'records' && <ViewAllRecords />}
+            {currentAction === 'users' && <UserManagement />}
           </div>
         )}
       </div>
