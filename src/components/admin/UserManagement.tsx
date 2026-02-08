@@ -19,7 +19,9 @@ interface UserWithRoles {
 }
 
 const roleConfig: Record<AppRole, { label: string; icon: typeof Shield; color: string }> = {
-  admin: { label: 'Admin', icon: Shield, color: 'bg-destructive text-destructive-foreground' },
+  super_admin: { label: 'Super Admin', icon: Shield, color: 'bg-destructive text-destructive-foreground' },
+  admin: { label: 'Admin', icon: Shield, color: 'bg-destructive/80 text-destructive-foreground' },
+  institute_admin: { label: 'Institute Admin', icon: Shield, color: 'bg-orange-600 text-white' },
   student: { label: 'Student', icon: GraduationCap, color: 'bg-primary text-primary-foreground' },
   verifier: { label: 'Verifier', icon: Eye, color: 'bg-accent text-accent-foreground' },
 };
@@ -240,7 +242,7 @@ export function UserManagement() {
                             <SelectValue placeholder="Add role" />
                           </SelectTrigger>
                           <SelectContent>
-                            {(['admin', 'student', 'verifier'] as AppRole[])
+                            {(['super_admin', 'admin', 'institute_admin', 'student', 'verifier'] as AppRole[])
                               .filter(role => !user.roles.includes(role))
                               .map((role) => {
                                 const config = roleConfig[role];

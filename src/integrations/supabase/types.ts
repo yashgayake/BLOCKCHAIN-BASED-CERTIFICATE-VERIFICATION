@@ -14,6 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
+      institutes: {
+        Row: {
+          address: string | null
+          code: string
+          contact_email: string | null
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          code: string
+          contact_email?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          code?: string
+          contact_email?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -23,6 +56,7 @@ export type Database = {
           enrollment_number: string | null
           full_name: string | null
           id: string
+          institute_id: string | null
           updated_at: string
           user_id: string
         }
@@ -34,6 +68,7 @@ export type Database = {
           enrollment_number?: string | null
           full_name?: string | null
           id?: string
+          institute_id?: string | null
           updated_at?: string
           user_id: string
         }
@@ -45,10 +80,19 @@ export type Database = {
           enrollment_number?: string | null
           full_name?: string | null
           id?: string
+          institute_id?: string | null
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "profiles_institute_id_fkey"
+            columns: ["institute_id"]
+            isOneToOne: false
+            referencedRelation: "institutes"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_roles: {
         Row: {
@@ -76,6 +120,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_user_institute_id: { Args: { _user_id: string }; Returns: string }
       get_user_roles: {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["app_role"][]
@@ -87,6 +132,11 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_institute_admin: {
+        Args: { _institute_id: string; _user_id: string }
+        Returns: boolean
+      }
+      is_super_admin: { Args: { _user_id: string }; Returns: boolean }
     }
     Enums: {
       app_role:
