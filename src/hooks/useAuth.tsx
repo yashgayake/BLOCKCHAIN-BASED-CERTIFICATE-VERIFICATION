@@ -2,14 +2,16 @@ import { useState, useEffect, useCallback, createContext, useContext, ReactNode 
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 
-export type AppRole = 'admin' | 'student' | 'verifier';
+export type AppRole = 'super_admin' | 'admin' | 'institute_admin' | 'student' | 'verifier';
 
 interface AuthContextType {
   user: User | null;
   session: Session | null;
   roles: AppRole[];
   isLoading: boolean;
+  isSuperAdmin: boolean;
   isAdmin: boolean;
+  isInstituteAdmin: boolean;
   isStudent: boolean;
   isVerifier: boolean;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
@@ -139,7 +141,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     session,
     roles,
     isLoading,
-    isAdmin: roles.includes('admin'),
+    isSuperAdmin: roles.includes('super_admin'),
+    isAdmin: roles.includes('admin') || roles.includes('super_admin'),
+    isInstituteAdmin: roles.includes('institute_admin'),
     isStudent: roles.includes('student'),
     isVerifier: roles.includes('verifier'),
     signIn,
