@@ -4,6 +4,7 @@ import { PageTransition } from "@/components/PageTransition";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import Index from "@/pages/Index";
 import AdminPortal from "@/pages/AdminPortal";
+import SuperAdminDashboard from "@/pages/SuperAdminDashboard";
 import StudentPortal from "@/pages/StudentPortal";
 import VerifyCertificate from "@/pages/VerifyCertificate";
 import Auth from "@/pages/Auth";
@@ -38,6 +39,16 @@ export function AnimatedRoutes() {
           element={
             <PageTransition>
               <ResetPassword />
+            </PageTransition>
+          }
+        />
+        <Route
+          path="/super-admin"
+          element={
+            <PageTransition>
+              <ProtectedRoute requiredRole="super_admin">
+                <SuperAdminDashboard />
+              </ProtectedRoute>
             </PageTransition>
           }
         />

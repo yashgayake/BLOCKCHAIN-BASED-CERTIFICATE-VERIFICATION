@@ -9,6 +9,15 @@ interface ProtectedRouteProps {
   requireAuth?: boolean;
 }
 
+// Super admins can access admin routes too
+const ROLE_HIERARCHY: Record<string, AppRole[]> = {
+  super_admin: ['super_admin'],
+  admin: ['admin', 'super_admin'],
+  institute_admin: ['institute_admin', 'super_admin'],
+  student: ['student'],
+  verifier: ['verifier'],
+};
+
 export function ProtectedRoute({ 
   children, 
   requiredRole, 
@@ -33,9 +42,13 @@ export function ProtectedRoute({
     return <Navigate to="/auth" state={{ from: location }} replace />;
   }
 
-  // Authenticated but missing required role
-  if (requiredRole && !hasRole(requiredRole)) {
-    return <Navigate to="/unauthorized" replace />;
+  // Authenticated but missing required role (with hierarchy check)
+  if (requiredRole) {
+    const allowedRoles = ROLE_HIERARCHY[requiredRole] || [requiredRole];
+    const hasAccess = allowedRoles.some(role => hasRole(role));
+    if (!hasAccess) {
+      return <Navigate to="/unauthorized" replace />;
+    }
   }
 
   return <>{children}</>;
