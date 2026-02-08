@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Shield, GraduationCap, CheckCircle, Menu, X, LogIn, LogOut, User } from 'lucide-react';
+import { Shield, GraduationCap, CheckCircle, Menu, X, LogIn, LogOut, User, Building2 } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -18,11 +18,12 @@ export function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, roles, signOut, isAdmin, isStudent } = useAuth();
+  const { user, roles, signOut, isAdmin, isStudent, isSuperAdmin, isInstituteAdmin } = useAuth();
 
   const navLinks = [
     { to: '/', label: 'Home', icon: Shield, show: true },
-    { to: '/admin', label: 'Admin Portal', icon: Shield, show: isAdmin },
+    { to: '/super-admin', label: 'Super Admin', icon: Building2, show: isSuperAdmin },
+    { to: '/admin', label: 'Admin Portal', icon: Shield, show: isAdmin || isInstituteAdmin },
     { to: '/student', label: 'Student Portal', icon: GraduationCap, show: isStudent },
     { to: '/verify', label: 'Verify Certificate', icon: CheckCircle, show: true },
   ].filter(link => link.show);
