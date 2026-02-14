@@ -9,9 +9,7 @@ interface AuthContextType {
   session: Session | null;
   roles: AppRole[];
   isLoading: boolean;
-  isSuperAdmin: boolean;
   isAdmin: boolean;
-  isInstituteAdmin: boolean;
   isStudent: boolean;
   isVerifier: boolean;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
@@ -141,9 +139,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     session,
     roles,
     isLoading,
-    isSuperAdmin: roles.includes('super_admin'),
-    isAdmin: roles.includes('admin') || roles.includes('super_admin'),
-    isInstituteAdmin: roles.includes('institute_admin'),
+    isAdmin: roles.includes('admin'),
     isStudent: roles.includes('student'),
     isVerifier: roles.includes('verifier'),
     signIn,
