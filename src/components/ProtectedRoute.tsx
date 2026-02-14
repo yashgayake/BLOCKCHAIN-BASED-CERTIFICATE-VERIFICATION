@@ -11,9 +11,7 @@ interface ProtectedRouteProps {
 
 // Super admins can access admin routes too
 const ROLE_HIERARCHY: Record<string, AppRole[]> = {
-  super_admin: ['super_admin'],
-  admin: ['admin', 'super_admin'],
-  institute_admin: ['institute_admin', 'super_admin'],
+  admin: ['admin'],
   student: ['student'],
   verifier: ['verifier'],
 };
