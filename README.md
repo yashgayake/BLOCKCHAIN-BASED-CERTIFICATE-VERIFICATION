@@ -1,73 +1,190 @@
-# Welcome to your Lovable project
+# 🎓 Blockchain Certificate Verification System
 
-## Project info
+A **Blockchain-based Certificate Verification Platform** that allows educational institutions to securely issue and verify certificates using **Ethereum blockchain technology**.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+This system prevents **fake certificates**, ensures **tamper-proof records**, and enables **instant verification** of academic credentials.
 
-## How can I edit this code?
+---
 
-There are several ways of editing your application.
+# 👨‍💻 Developer
 
-**Use Lovable**
+**Yash Gayake**
+Diploma in Computer Engineering Student
+Blockchain • Full Stack Development • AI/ML Enthusiast
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+GitHub: https://github.com/yashgayake
 
-Changes made via Lovable will be committed automatically to this repo.
+---
 
-**Use your preferred IDE**
+# 🚀 Features
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+### 🔐 Admin Portal
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+* MetaMask wallet authentication
+* Smart contract connection
+* Register new students
+* Issue blockchain-based certificates
+* View all student and certificate records
 
-Follow these steps:
+### 🎓 Student Portal
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+* Student login using enrollment number
+* View issued certificates
+* Secure certificate access
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+### 🔍 Certificate Verification
 
-# Step 3: Install the necessary dependencies.
-npm i
+* Verify certificate authenticity
+* Blockchain validation
+* Prevent fake certificates
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
+### ⛓ Blockchain Integration
+
+* Ethereum Smart Contract
+* MetaMask wallet connection
+* Ganache local blockchain network
+* Immutable certificate records
+
+---
+
+# 🛠 Tech Stack
+
+Frontend
+
+* React
+* TypeScript
+* Vite
+* Tailwind CSS
+
+Blockchain
+
+* Solidity
+* Ethereum
+* Ethers.js
+* MetaMask
+* Ganache
+
+Development Tools
+
+* VS Code
+* Git & GitHub
+* Remix IDE
+
+---
+
+# 📂 Project Structure
+
+```
+src
+ ├─ components
+ │   ├─ admin
+ │   │   ├─ RegisterStudent.tsx
+ │   │   ├─ IssueCertificate.tsx
+ │   │   └─ ViewAllRecords.tsx
+ │
+ ├─ contexts
+ │   ├─ BlockchainContext.tsx
+ │   └─ AppContext.tsx
+ │
+ ├─ lib
+ │   └─ blockchain.ts
+ │
+ ├─ pages
+ │   ├─ AdminPortal.tsx
+ │   ├─ StudentPortal.tsx
+ │   └─ VerifyCertificate.tsx
+```
+
+---
+
+# ⚙️ Installation & Setup
+
+## 1️⃣ Clone the repository
+
+```bash
+git clone https://github.com/yashgayake/blockchain-certificate-verification.git
+```
+
+## 2️⃣ Open project
+
+```bash
+cd blockchain-certificate-verification
+```
+
+## 3️⃣ Install dependencies
+
+```bash
+npm install
+```
+
+## 4️⃣ Start development server
+
+```bash
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+---
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+# ⛓ Blockchain Setup
 
-**Use GitHub Codespaces**
+### 1️⃣ Start Ganache
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+Run Ganache and create a local blockchain network.
 
-## What technologies are used for this project?
+### 2️⃣ Deploy Smart Contract
 
-This project is built with:
+Deploy the certificate smart contract using **Remix IDE**.
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+### 3️⃣ Update Contract Address
 
-## How can I deploy this project?
+Update the deployed contract address inside:
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
+```
+src/lib/blockchain.ts
+```
 
-## Can I connect a custom domain to my Lovable project?
+### 4️⃣ Connect MetaMask
 
-Yes, you can!
+Add Ganache network to MetaMask:
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+```
+Network Name: Ganache Local
+RPC URL: http://127.0.0.1:7545
+Chain ID: 1337
+Currency Symbol: ETH
+```
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+---
+
+# 🧪 System Workflow
+
+1️⃣ Admin connects MetaMask wallet
+2️⃣ Admin registers student on blockchain
+3️⃣ Admin issues certificate
+4️⃣ Certificate stored securely on blockchain
+5️⃣ Student can view certificates
+6️⃣ Anyone can verify certificate authenticity
+
+---
+
+# 📌 Future Improvements
+
+* QR Code based certificate verification
+* IPFS certificate storage
+* Email notification system
+* Mobile responsive improvements
+* Multi-institution support
+
+---
+
+# 📜 License
+
+This project is created for **educational and research purposes**.
+
+---
+
+# ⭐ Author
+
+**Yash Gayake**
+
+If you like this project, feel free to **star the repository ⭐**
