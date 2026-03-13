@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { UserPlus, CheckCircle2 } from 'lucide-react';
+import { UserPlus, CheckCircle2, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -18,15 +18,76 @@ export function RegisterStudent() {
 
   const [isLoading, setIsLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [checkingDuplicate, setCheckingDuplicate] = useState(false);
+  const [duplicateFound, setDuplicateFound] = useState(false);
 
   const { service } = useBlockchain();
   const { toast } = useToast();
 
+  const isValidEmail = (email: string) => {
+    if (!email) return true;
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  };
+
+  const checkDuplicateStudent = async (enrollmentNumber: string) => {
+    const cleanEnrollment = enrollmentNumber.trim();
+
+    if (!cleanEnrollment) {
+      setDuplicateFound(false);
+      return;
+    }
+
+    try {
+      setCheckingDuplicate(true);
+
+      const existingStudent = await service.getStudent(cleanEnrollment);
+
+      if (existingStudent && existingStudent.isRegistered) {
+        setDuplicateFound(true);
+        toast({
+          title: 'Duplicate Student',
+          description: 'Student with this enrollment number already exists.',
+          variant: 'destructive'
+        });
+      } else {
+        setDuplicateFound(false);
+      }
+    } catch {
+      setDuplicateFound(false);
+    } finally {
+      setCheckingDuplicate(false);
+    }
+  };
+
   const handleSubmit = async () => {
-    if (!formData.enrollmentNumber || !formData.name || !formData.course) {
+    const cleanEnrollment = formData.enrollmentNumber.trim();
+    const cleanName = formData.name.trim();
+    const cleanEmail = formData.email.trim();
+    const cleanCourse = formData.course.trim();
+    const cleanPassword = formData.password.trim();
+
+    if (!cleanEnrollment || !cleanName || !cleanCourse) {
       toast({
-        title: 'Error',
-        description: 'Please fill all required fields',
+        title: 'Missing Fields',
+        description: 'Please fill enrollment number, full name, and course.',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    if (!isValidEmail(cleanEmail)) {
+      toast({
+        title: 'Invalid Email',
+        description: 'Please enter a valid email address.',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    if (duplicateFound) {
+      toast({
+        title: 'Duplicate Student',
+        description: 'Student with this enrollment number is already registered.',
         variant: 'destructive'
       });
       return;
@@ -35,42 +96,51 @@ export function RegisterStudent() {
     setIsLoading(true);
 
     try {
-      const existingStudent = await service.getStudent(formData.enrollmentNumber);
+      const existingStudent = await service.getStudent(cleanEnrollment);
 
       if (existingStudent && existingStudent.isRegistered) {
+        setDuplicateFound(true);
         toast({
-          title: 'Error',
-          description: 'Student with this enrollment number is already registered',
+          title: 'Duplicate Student',
+          description: 'Student with this enrollment number is already registered.',
           variant: 'destructive'
         });
-        setIsLoading(false);
         return;
       }
-    } catch (error) {
-      // safe to continue if student not found or getter throws for missing data
+    } catch {
+      // continue if no student found
     }
 
     try {
       const tx = await service.registerStudent(
-        formData.enrollmentNumber,
-        formData.name,
-        formData.email,
-        formData.course,
-        formData.password
+        cleanEnrollment,
+        cleanName,
+        cleanEmail,
+        cleanCourse,
+        cleanPassword
       );
 
       await tx.wait();
 
       setSuccess(true);
+      setDuplicateFound(false);
 
       toast({
         title: 'Success!',
-        description: 'Student registered on blockchain'
+        description: 'Student registered on blockchain successfully.'
+      });
+
+      setFormData({
+        enrollmentNumber: cleanEnrollment,
+        name: cleanName,
+        email: cleanEmail,
+        course: cleanCourse,
+        password: cleanPassword
       });
     } catch (err: any) {
       toast({
-        title: 'Error',
-        description: err.message || 'Failed to register student',
+        title: 'Registration Failed',
+        description: err.message || 'Failed to register student on blockchain.',
         variant: 'destructive'
       });
     } finally {
@@ -90,6 +160,7 @@ export function RegisterStudent() {
           <Button
             onClick={() => {
               setSuccess(false);
+              setDuplicateFound(false);
               setFormData({
                 enrollmentNumber: '',
                 name: '',
@@ -124,8 +195,18 @@ export function RegisterStudent() {
               onChange={(e) =>
                 setFormData({ ...formData, enrollmentNumber: e.target.value })
               }
+              onBlur={() => checkDuplicateStudent(formData.enrollmentNumber)}
               className="mt-2"
+              placeholder="Enter enrollment number"
             />
+            {checkingDuplicate && (
+              <p className="text-xs text-muted-foreground mt-1">Checking duplicate...</p>
+            )}
+            {duplicateFound && (
+              <p className="text-xs text-destructive mt-1">
+                This enrollment number is already registered.
+              </p>
+            )}
           </div>
 
           <div>
@@ -134,6 +215,7 @@ export function RegisterStudent() {
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               className="mt-2"
+              placeholder="Enter full name"
             />
           </div>
 
@@ -144,6 +226,7 @@ export function RegisterStudent() {
               value={formData.email}
               onChange={(e) => setFormData({ ...formData, email: e.target.value })}
               className="mt-2"
+              placeholder="Enter email address"
             />
           </div>
 
@@ -153,6 +236,7 @@ export function RegisterStudent() {
               value={formData.course}
               onChange={(e) => setFormData({ ...formData, course: e.target.value })}
               className="mt-2"
+              placeholder="Enter course name"
             />
           </div>
 
@@ -162,6 +246,7 @@ export function RegisterStudent() {
               value={formData.password}
               onChange={(e) => setFormData({ ...formData, password: e.target.value })}
               className="mt-2"
+              placeholder="Enter password"
             />
             <p className="text-xs text-muted-foreground mt-1">
               Institute password for student login
@@ -169,8 +254,19 @@ export function RegisterStudent() {
           </div>
         </div>
 
-        <Button onClick={handleSubmit} disabled={isLoading} className="w-full">
-          {isLoading ? 'Registering...' : 'Register Student'}
+        <Button
+          onClick={handleSubmit}
+          disabled={isLoading || checkingDuplicate || duplicateFound}
+          className="w-full"
+        >
+          {isLoading ? (
+            <span className="flex items-center justify-center gap-2">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Registering...
+            </span>
+          ) : (
+            'Register Student'
+          )}
         </Button>
       </CardContent>
     </Card>

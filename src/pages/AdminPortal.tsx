@@ -1,5 +1,18 @@
 import { useState, useEffect } from 'react';
-import { Shield, Wallet, AlertCircle, CheckCircle2, UserPlus, FileCheck, List, LogOut } from 'lucide-react';
+import {
+  Shield,
+  Wallet,
+  AlertCircle,
+  CheckCircle2,
+  UserPlus,
+  FileCheck,
+  List,
+  LogOut,
+  Users,
+  Files,
+  RefreshCw,
+  Link as LinkIcon
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -10,60 +23,117 @@ import { useToast } from '@/hooks/use-toast';
 import { RegisterStudent } from '@/components/admin/RegisterStudent';
 import { IssueCertificate } from '@/components/admin/IssueCertificate';
 import { ViewAllRecords } from '@/components/admin/ViewAllRecords';
-import { cn } from '@/lib/utils';
 import { DEFAULT_CONTRACT_ADDRESS, ADMIN_WALLET_ADDRESS } from '@/lib/blockchain';
 
 type AdminAction = 'register' | 'issue' | 'records' | null;
 
 export default function AdminPortal() {
-  // Pre-fill with deployed contract address
   const [contractAddress, setContractAddress] = useState(DEFAULT_CONTRACT_ADDRESS);
   const [currentAction, setCurrentAction] = useState<AdminAction>(null);
-  const { isConnected, walletAddress, contractAddress: connectedContract, isAdmin, isLoading, error, connectWallet, initContract, disconnect } = useBlockchain();
+
+  const [stats, setStats] = useState({
+    totalStudents: 0,
+    totalCertificates: 0
+  });
+
+  const [statsLoading, setStatsLoading] = useState(false);
+
+  const {
+    isConnected,
+    walletAddress,
+    contractAddress: connectedContract,
+    isAdmin,
+    isLoading,
+    error,
+    connectWallet,
+    initContract,
+    disconnect,
+    service
+  } = useBlockchain();
+
   const { toast } = useToast();
 
-  
   const handleConnect = async () => {
-  try {
-    await connectWallet();
+    try {
+      await connectWallet();
 
-    toast({
-      title: "Wallet Connected",
-      description: "MetaMask wallet connected successfully!",
-    });
-  } catch (err: any) {
-    toast({
-      title: "Connection Failed",
-      description: err.message,
-      variant: "destructive",
-    });
-  }
-};
+      toast({
+        title: 'Wallet Connected',
+        description: 'MetaMask wallet connected successfully!'
+      });
+    } catch (err: any) {
+      toast({
+        title: 'Connection Failed',
+        description: err.message,
+        variant: 'destructive'
+      });
+    }
+  };
 
   const handleInitContract = async () => {
     if (!contractAddress.trim()) {
       toast({
-        title: "Error",
-        description: "Please enter the contract address",
-        variant: "destructive",
+        title: 'Error',
+        description: 'Please enter the contract address',
+        variant: 'destructive'
       });
       return;
     }
 
     try {
-      await initContract(contractAddress);
+      await initContract(contractAddress.trim());
+
       toast({
-        title: "Contract Connected",
-        description: "Smart contract initialized successfully!",
+        title: 'Contract Connected',
+        description: 'Smart contract initialized successfully!'
       });
     } catch (err: any) {
       toast({
-        title: "Contract Error",
+        title: 'Contract Error',
         description: err.message,
-        variant: "destructive",
+        variant: 'destructive'
       });
     }
   };
+
+  const handleDisconnect = () => {
+    setCurrentAction(null);
+    setStats({
+      totalStudents: 0,
+      totalCertificates: 0
+    });
+    disconnect();
+  };
+
+  const loadDashboardStats = async () => {
+    if (!connectedContract || !isAdmin) return;
+
+    try {
+      setStatsLoading(true);
+
+      const enrollmentNumbers = await service.getAllEnrollmentNumbers();
+      const certificateHashes = await service.getAllCertificateHashes();
+
+      setStats({
+        totalStudents: enrollmentNumbers.length,
+        totalCertificates: certificateHashes.length
+      });
+    } catch (err: any) {
+      toast({
+        title: 'Stats Load Failed',
+        description: err.message || 'Could not load dashboard statistics.',
+        variant: 'destructive'
+      });
+    } finally {
+      setStatsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (connectedContract && isAdmin) {
+      loadDashboardStats();
+    }
+  }, [connectedContract, isAdmin]);
 
   const actions = [
     {
@@ -86,7 +156,6 @@ export default function AdminPortal() {
     }
   ];
 
-  // Not connected state
   if (!isConnected) {
     return (
       <div className="min-h-screen bg-background">
@@ -103,14 +172,21 @@ export default function AdminPortal() {
                   Connect your MetaMask wallet to access admin functions
                 </CardDescription>
               </CardHeader>
+
               <CardContent>
-                <Button onClick={handleConnect} disabled={isLoading} className="w-full gap-2" size="lg">
+                <Button
+                  onClick={handleConnect}
+                  disabled={isLoading}
+                  className="w-full gap-2"
+                  size="lg"
+                >
                   <Wallet className="h-5 w-5" />
                   {isLoading ? 'Connecting...' : 'Connect MetaMask'}
                 </Button>
+
                 {error && (
                   <div className="mt-4 flex items-start gap-2 rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
-                    <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+                    <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
                     {error}
                   </div>
                 )}
@@ -122,7 +198,6 @@ export default function AdminPortal() {
     );
   }
 
-  // Connected but contract not initialized
   if (!connectedContract) {
     return (
       <div className="min-h-screen bg-background">
@@ -139,6 +214,7 @@ export default function AdminPortal() {
                   {walletAddress}
                 </CardDescription>
               </CardHeader>
+
               <CardContent className="space-y-4">
                 <div>
                   <Label htmlFor="contract">Smart Contract Address</Label>
@@ -149,15 +225,25 @@ export default function AdminPortal() {
                     onChange={(e) => setContractAddress(e.target.value)}
                     className="mt-2"
                   />
-                  <p className="text-xs text-muted-foreground mt-2">
+                  <p className="mt-2 text-xs text-muted-foreground">
                     Enter the deployed contract address from Remix/Ganache
                   </p>
                 </div>
-                <Button onClick={handleInitContract} disabled={isLoading} className="w-full gap-2">
+
+                <Button
+                  onClick={handleInitContract}
+                  disabled={isLoading}
+                  className="w-full gap-2"
+                >
                   <Shield className="h-4 w-4" />
                   {isLoading ? 'Connecting...' : 'Connect to Contract'}
                 </Button>
-                <Button onClick={disconnect} variant="outline" className="w-full gap-2">
+
+                <Button
+                  onClick={handleDisconnect}
+                  variant="outline"
+                  className="w-full gap-2"
+                >
                   <LogOut className="h-4 w-4" />
                   Disconnect Wallet
                 </Button>
@@ -169,7 +255,6 @@ export default function AdminPortal() {
     );
   }
 
-  // Not admin - show unauthorized message
   if (!isAdmin) {
     return (
       <div className="min-h-screen bg-background">
@@ -181,26 +266,40 @@ export default function AdminPortal() {
                 <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-destructive/10">
                   <AlertCircle className="h-6 w-6 text-destructive" />
                 </div>
-                <CardTitle className="text-xl text-destructive">⚠️ Unauthorized Admin</CardTitle>
+                <CardTitle className="text-xl text-destructive">
+                  ⚠️ Unauthorized Admin
+                </CardTitle>
                 <CardDescription>
                   This wallet is not authorized to access admin functions.
                 </CardDescription>
               </CardHeader>
+
               <CardContent className="space-y-4">
-                <div className="rounded-lg bg-muted p-4 space-y-2">
+                <div className="space-y-2 rounded-lg bg-muted p-4">
                   <p className="text-sm text-muted-foreground">
                     <strong>Connected Wallet:</strong>
                   </p>
-                  <p className="font-mono text-xs break-all text-foreground">{walletAddress}</p>
-                  <p className="text-sm text-muted-foreground mt-3">
+                  <p className="break-all font-mono text-xs text-foreground">
+                    {walletAddress}
+                  </p>
+
+                  <p className="mt-3 text-sm text-muted-foreground">
                     <strong>Required Admin Wallet:</strong>
                   </p>
-                  <p className="font-mono text-xs break-all text-foreground">{ADMIN_WALLET_ADDRESS}</p>
+                  <p className="break-all font-mono text-xs text-foreground">
+                    {ADMIN_WALLET_ADDRESS}
+                  </p>
                 </div>
-                <p className="text-sm text-muted-foreground text-center">
+
+                <p className="text-center text-sm text-muted-foreground">
                   Please connect with the admin wallet that deployed the smart contract.
                 </p>
-                <Button onClick={disconnect} variant="outline" className="w-full gap-2">
+
+                <Button
+                  onClick={handleDisconnect}
+                  variant="outline"
+                  className="w-full gap-2"
+                >
                   <LogOut className="h-4 w-4" />
                   Disconnect & Try Admin Wallet
                 </Button>
@@ -212,58 +311,142 @@ export default function AdminPortal() {
     );
   }
 
-  // Admin dashboard
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
+
       <div className="container py-8">
-        {/* Header */}
         <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
-            <h1 className="text-3xl font-bold flex items-center gap-3">
+            <h1 className="flex items-center gap-3 text-3xl font-bold">
               <Shield className="h-8 w-8 text-primary" />
               Admin Dashboard
             </h1>
-            <p className="text-muted-foreground mt-1">
+            <p className="mt-1 text-muted-foreground">
               Manage certificates and students on the blockchain
             </p>
           </div>
+
           <div className="flex items-center gap-3">
             <div className="rounded-lg bg-success/10 px-3 py-2 text-sm">
-              <span className="text-success font-medium">● Connected</span>
+              <span className="font-medium text-success">● Connected</span>
             </div>
-            <Button onClick={disconnect} variant="outline" size="sm" className="gap-2">
+
+            <Button
+              onClick={loadDashboardStats}
+              variant="outline"
+              size="sm"
+              className="gap-2"
+              disabled={statsLoading}
+            >
+              <RefreshCw className={`h-4 w-4 ${statsLoading ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
+
+            <Button
+              onClick={handleDisconnect}
+              variant="outline"
+              size="sm"
+              className="gap-2"
+            >
               <LogOut className="h-4 w-4" />
               Disconnect
             </Button>
           </div>
         </div>
 
-        {/* Wallet Info */}
         <Card className="mb-8 glass-card">
           <CardContent className="py-4">
             <div className="grid gap-4 md:grid-cols-2">
               <div>
                 <p className="text-sm text-muted-foreground">Wallet Address</p>
-                <p className="font-mono text-sm break-all">{walletAddress}</p>
+                <p className="break-all font-mono text-sm">{walletAddress}</p>
               </div>
+
               <div>
                 <p className="text-sm text-muted-foreground">Contract Address</p>
-                <p className="font-mono text-sm break-all">{connectedContract}</p>
+                <p className="break-all font-mono text-sm">{connectedContract}</p>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* Action Selection or Active Action */}
+        {/* Stats Cards */}
+        <div className="mb-8 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <Card className="glass-card">
+            <CardContent className="py-5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">Total Students</p>
+                  <h3 className="mt-2 text-2xl font-bold">
+                    {statsLoading ? '...' : stats.totalStudents}
+                  </h3>
+                </div>
+                <div className="rounded-2xl bg-primary/10 p-3">
+                  <Users className="h-6 w-6 text-primary" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="glass-card">
+            <CardContent className="py-5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">Total Certificates</p>
+                  <h3 className="mt-2 text-2xl font-bold">
+                    {statsLoading ? '...' : stats.totalCertificates}
+                  </h3>
+                </div>
+                <div className="rounded-2xl bg-success/10 p-3">
+                  <Files className="h-6 w-6 text-success" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="glass-card">
+            <CardContent className="py-5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">Admin Wallet Status</p>
+                  <h3 className="mt-2 text-lg font-bold text-success">
+                    {isAdmin ? 'Authorized' : 'Unauthorized'}
+                  </h3>
+                </div>
+                <div className="rounded-2xl bg-success/10 p-3">
+                  <Wallet className="h-6 w-6 text-success" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="glass-card">
+            <CardContent className="py-5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">Contract Connected</p>
+                  <h3 className="mt-2 text-lg font-bold text-primary">
+                    {connectedContract ? 'Yes' : 'No'}
+                  </h3>
+                </div>
+                <div className="rounded-2xl bg-primary/10 p-3">
+                  <LinkIcon className="h-6 w-6 text-primary" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
         {currentAction === null ? (
           <div className="grid gap-6 md:grid-cols-3">
             {actions.map((action) => {
               const Icon = action.icon;
+
               return (
                 <Card
                   key={action.id}
-                  className="glass-card cursor-pointer transition-all duration-300 hover:shadow-xl hover:-translate-y-1"
+                  className="glass-card cursor-pointer transition-all duration-300 hover:-translate-y-1 hover:shadow-xl"
                   onClick={() => setCurrentAction(action.id)}
                 >
                   <CardHeader>
@@ -272,6 +455,7 @@ export default function AdminPortal() {
                     </div>
                     <CardTitle className="text-xl">{action.title}</CardTitle>
                   </CardHeader>
+
                   <CardContent>
                     <CardDescription className="text-base">
                       {action.description}
@@ -290,7 +474,7 @@ export default function AdminPortal() {
             >
               ← Back to Actions
             </Button>
-            
+
             {currentAction === 'register' && <RegisterStudent />}
             {currentAction === 'issue' && <IssueCertificate />}
             {currentAction === 'records' && <ViewAllRecords />}

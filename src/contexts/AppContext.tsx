@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, ReactNode } from 'react';
 
 export interface StoredCertificate {
   certificateHash: string;
+  certificateNumber: string;
   transactionHash: string;
   studentName: string;
   enrollmentNumber: string;
@@ -13,23 +14,12 @@ export interface StoredCertificate {
   certificatePdf?: string;
 }
 
-export interface StoredStudent {
-  enrollmentNumber: string;
-  name: string;
-  email: string;
-  course: string;
-  password: string;
-  registrationDate: string;
-}
-
 interface AppContextType {
   certificates: StoredCertificate[];
-  students: StoredStudent[];
   addCertificate: (cert: StoredCertificate) => void;
-  addStudent: (student: StoredStudent) => void;
   getCertificateByHash: (hash: string) => StoredCertificate | undefined;
   getCertificatesByEnrollment: (enrollment: string) => StoredCertificate[];
-  getStudentByEnrollment: (enrollment: string) => StoredStudent | undefined;
+  clearCertificates: () => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -40,49 +30,43 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return stored ? JSON.parse(stored) : [];
   });
 
-  const [students, setStudents] = useState<StoredStudent[]>(() => {
-    const stored = localStorage.getItem('students');
-    return stored ? JSON.parse(stored) : [];
-  });
-
   const addCertificate = (cert: StoredCertificate) => {
     setCertificates(prev => {
+      const exists = prev.some(
+        c => c.certificateHash.toLowerCase() === cert.certificateHash.toLowerCase()
+      );
+
+      if (exists) return prev;
+
       const updated = [...prev, cert];
       localStorage.setItem('certificates', JSON.stringify(updated));
       return updated;
     });
   };
 
-  const addStudent = (student: StoredStudent) => {
-    setStudents(prev => {
-      const updated = [...prev, student];
-      localStorage.setItem('students', JSON.stringify(updated));
-      return updated;
-    });
-  };
-
   const getCertificateByHash = (hash: string) => {
-    return certificates.find(c => c.certificateHash.toLowerCase() === hash.toLowerCase());
+    return certificates.find(
+      c => c.certificateHash.toLowerCase() === hash.toLowerCase()
+    );
   };
 
   const getCertificatesByEnrollment = (enrollment: string) => {
     return certificates.filter(c => c.enrollmentNumber === enrollment);
   };
 
-  const getStudentByEnrollment = (enrollment: string) => {
-    return students.find(s => s.enrollmentNumber === enrollment);
+  const clearCertificates = () => {
+    setCertificates([]);
+    localStorage.removeItem('certificates');
   };
 
   return (
     <AppContext.Provider
       value={{
         certificates,
-        students,
         addCertificate,
-        addStudent,
         getCertificateByHash,
         getCertificatesByEnrollment,
-        getStudentByEnrollment
+        clearCertificates
       }}
     >
       {children}

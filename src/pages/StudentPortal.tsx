@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import {
   GraduationCap,
   LogIn,
@@ -36,12 +36,25 @@ import {
   GANACHE_RPC_URL
 } from '@/lib/blockchain';
 import { ethers } from 'ethers';
+import { CertificatePreview } from '@/components/admin/CertificatePreview';
+import html2canvas from 'html2canvas';
+import jsPDF from 'jspdf';
+
+interface PreviewCertificateData {
+  certificateNumber: string;
+  studentName: string;
+  course: string;
+  institution: string;
+  issueDate: string;
+  certificateHash: string;
+}
 
 export default function StudentPortal() {
   const [enrollmentNumber, setEnrollmentNumber] = useState('');
   const [password, setPassword] = useState('');
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
   const [loggedInStudent, setLoggedInStudent] = useState<{
     enrollmentNumber: string;
     name: string;
@@ -49,6 +62,10 @@ export default function StudentPortal() {
 
   const [blockchainCertificates, setBlockchainCertificates] = useState<Certificate[]>([]);
   const [studentCertificates, setStudentCertificates] = useState<any[]>([]);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [selectedCertificate, setSelectedCertificate] = useState<PreviewCertificateData | null>(null);
+
+  const previewRef = useRef<HTMLDivElement | null>(null);
 
   const { getCertificatesByEnrollment } = useAppContext();
   const { toast } = useToast();
@@ -79,7 +96,7 @@ export default function StudentPortal() {
         provider
       );
 
-      const isValidLogin = await contract.verifyStudentLogin(enrollmentNumber, password);
+      const isValidLogin = await contract.verifyStudentLogin(enrollmentNumber.trim(), password.trim());
 
       if (!isValidLogin) {
         toast({
@@ -90,7 +107,7 @@ export default function StudentPortal() {
         return;
       }
 
-      const studentData = await contract.getStudent(enrollmentNumber);
+      const studentData = await contract.getStudent(enrollmentNumber.trim());
 
       if (!studentData || !studentData.isRegistered) {
         toast({
@@ -101,13 +118,12 @@ export default function StudentPortal() {
         return;
       }
 
-      const certHashes = await contract.getStudentCertificates(enrollmentNumber);
+      const certHashes = await contract.getStudentCertificates(enrollmentNumber.trim());
       const certs: Certificate[] = [];
 
       for (const hash of certHashes) {
         try {
           const certData = await contract.getCertificate(hash);
-
           certs.push({
             studentName: certData.studentName,
             enrollmentNumber: certData.enrollmentNumber,
@@ -126,14 +142,13 @@ export default function StudentPortal() {
 
       setIsLoggedIn(true);
       setLoggedInStudent({
-        enrollmentNumber,
+        enrollmentNumber: enrollmentNumber.trim(),
         name: studentData.name
       });
 
       setBlockchainCertificates(certs);
 
-      // Optional local media cache only (photo/pdf preview)
-      const localCerts = getCertificatesByEnrollment(enrollmentNumber);
+      const localCerts = getCertificatesByEnrollment(enrollmentNumber.trim());
       setStudentCertificates(localCerts);
 
       toast({
@@ -160,6 +175,8 @@ export default function StudentPortal() {
     setStudentCertificates([]);
     setEnrollmentNumber('');
     setPassword('');
+    setPreviewOpen(false);
+    setSelectedCertificate(null);
   };
 
   const downloadQRCode = (certHash: string) => {
@@ -188,8 +205,89 @@ export default function StudentPortal() {
 
   const getLocalCertData = (hash: string) => {
     return studentCertificates.find(
-      (c) => c.certificateHash.toLowerCase() === hash.toLowerCase()
+      (c: any) => c.certificateHash.toLowerCase() === hash.toLowerCase()
     );
+  };
+
+  const getCertificateNumber = (cert: Certificate) => {
+    const localData = getLocalCertData(cert.certificateHash);
+    return (
+      localData?.certificateNumber ||
+      `CERT-${cert.issueYear}-${cert.enrollmentNumber.toString().slice(-4).padStart(4, '0')}`
+    );
+  };
+
+  const getIssueDateString = (cert: Certificate) => {
+    return new Date(cert.issueDate * 1000).toISOString();
+  };
+
+  const openGeneratedCertificate = (cert: Certificate) => {
+    setSelectedCertificate({
+      certificateNumber: getCertificateNumber(cert),
+      studentName: cert.studentName,
+      course: cert.course,
+      institution: cert.institution,
+      issueDate: getIssueDateString(cert),
+      certificateHash: cert.certificateHash
+    });
+    setPreviewOpen(true);
+  };
+
+  const downloadPdfFromPreview = async () => {
+    if (!previewRef.current || !selectedCertificate) {
+      toast({
+        title: 'Preview Missing',
+        description: 'Certificate preview is not available.',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    try {
+      setIsDownloadingPdf(true);
+
+      const canvas = await html2canvas(previewRef.current, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: '#ffffff'
+      });
+
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF('p', 'mm', 'a4');
+
+      const pdfWidth = 210;
+      const pdfHeight = 297;
+      const imgWidth = pdfWidth;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+      let heightLeft = imgHeight;
+      let position = 0;
+
+      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+      heightLeft -= pdfHeight;
+
+      while (heightLeft > 0) {
+        position = heightLeft - imgHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+        heightLeft -= pdfHeight;
+      }
+
+      pdf.save(`${selectedCertificate.certificateNumber}.pdf`);
+
+      toast({
+        title: 'PDF Downloaded',
+        description: 'Certificate PDF has been downloaded successfully.'
+      });
+    } catch (error: any) {
+      toast({
+        title: 'Download Failed',
+        description: error.message || 'Could not generate PDF.',
+        variant: 'destructive'
+      });
+    } finally {
+      setIsDownloadingPdf(false);
+    }
   };
 
   if (!isLoggedIn) {
@@ -325,6 +423,15 @@ export default function StudentPortal() {
                     </CardHeader>
 
                     <CardContent className="space-y-4">
+                      <div>
+                        <p className="mb-1 text-sm text-muted-foreground">
+                          Certificate Number
+                        </p>
+                        <p className="rounded bg-muted/50 p-2 text-sm font-semibold">
+                          {getCertificateNumber(cert)}
+                        </p>
+                      </div>
+
                       <div className="grid grid-cols-2 gap-4 text-sm">
                         <div>
                           <p className="text-muted-foreground">Issue Year</p>
@@ -357,19 +464,6 @@ export default function StudentPortal() {
                           </p>
                         </div>
                       )}
-
-                      {cert.issuerAddress &&
-                        cert.issuerAddress !==
-                          '0x0000000000000000000000000000000000000000' && (
-                          <div>
-                            <p className="mb-1 text-sm text-muted-foreground">
-                              Issuer Address
-                            </p>
-                            <p className="break-all rounded bg-muted/50 p-2 font-mono text-xs">
-                              {cert.issuerAddress}
-                            </p>
-                          </div>
-                        )}
 
                       <div className="flex flex-wrap gap-2 pt-2">
                         <Dialog>
@@ -435,17 +529,30 @@ export default function StudentPortal() {
                           </Dialog>
                         )}
 
-                        {localData?.certificatePdf && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="gap-2"
-                            onClick={() => window.open(localData.certificatePdf, '_blank')}
-                          >
-                            <FileCheck className="h-4 w-4" />
-                            View Certificate
-                          </Button>
-                        )}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="gap-2"
+                          onClick={() => openGeneratedCertificate(cert)}
+                        >
+                          <Eye className="h-4 w-4" />
+                          View Certificate
+                        </Button>
+
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="gap-2"
+                          onClick={() => {
+                            openGeneratedCertificate(cert);
+                            setTimeout(() => {
+                              downloadPdfFromPreview();
+                            }, 300);
+                          }}
+                        >
+                          <Download className="h-4 w-4" />
+                          Download PDF
+                        </Button>
                       </div>
                     </CardContent>
                   </Card>
@@ -454,6 +561,42 @@ export default function StudentPortal() {
             </div>
           </div>
         )}
+
+        <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
+          <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Generated Certificate Preview</DialogTitle>
+            </DialogHeader>
+
+            {selectedCertificate && (
+              <div className="space-y-4">
+                <CertificatePreview
+                  ref={previewRef}
+                  certificateNumber={selectedCertificate.certificateNumber}
+                  studentName={selectedCertificate.studentName}
+                  course={selectedCertificate.course}
+                  institution={selectedCertificate.institution}
+                  issueDate={selectedCertificate.issueDate}
+                  certificateHash={selectedCertificate.certificateHash}
+                  issuerName="Yash Gayake"
+                  issuerTitle="Registrar"
+                />
+
+                <div className="flex justify-end gap-3">
+                  <Button
+                    variant="outline"
+                    className="gap-2"
+                    onClick={downloadPdfFromPreview}
+                    disabled={isDownloadingPdf}
+                  >
+                    <Download className="h-4 w-4" />
+                    {isDownloadingPdf ? 'Downloading...' : 'Download PDF'}
+                  </Button>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );
