@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Shield,
   Wallet,
@@ -11,8 +11,12 @@ import {
   Users,
   Files,
   RefreshCw,
-  Link as LinkIcon
+  Link as LinkIcon,
+  Search,
+  Copy
 } from 'lucide-react';
+
+import AnalyticsDashboard from '@/components/admin/AnalyticsDashboard';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -24,6 +28,7 @@ import { RegisterStudent } from '@/components/admin/RegisterStudent';
 import { IssueCertificate } from '@/components/admin/IssueCertificate';
 import { ViewAllRecords } from '@/components/admin/ViewAllRecords';
 import { DEFAULT_CONTRACT_ADDRESS, ADMIN_WALLET_ADDRESS } from '@/lib/blockchain';
+import { useAppContext } from '@/contexts/AppContext';
 
 type AdminAction = 'register' | 'issue' | 'records' | null;
 
@@ -35,8 +40,11 @@ export default function AdminPortal() {
     totalStudents: 0,
     totalCertificates: 0
   });
-
   const [statsLoading, setStatsLoading] = useState(false);
+
+  const [searchTerm, setSearchTerm] = useState('');
+  const [courseFilter, setCourseFilter] = useState('All');
+  const [yearFilter, setYearFilter] = useState('All');
 
   const {
     isConnected,
@@ -51,12 +59,12 @@ export default function AdminPortal() {
     service
   } = useBlockchain();
 
+  const { certificates } = useAppContext();
   const { toast } = useToast();
 
   const handleConnect = async () => {
     try {
       await connectWallet();
-
       toast({
         title: 'Wallet Connected',
         description: 'MetaMask wallet connected successfully!'
@@ -82,7 +90,6 @@ export default function AdminPortal() {
 
     try {
       await initContract(contractAddress.trim());
-
       toast({
         title: 'Contract Connected',
         description: 'Smart contract initialized successfully!'
@@ -134,6 +141,45 @@ export default function AdminPortal() {
       loadDashboardStats();
     }
   }, [connectedContract, isAdmin]);
+
+  const copyHash = async (hash: string) => {
+    try {
+      await navigator.clipboard.writeText(hash);
+      toast({
+        title: 'Copied',
+        description: 'Certificate hash copied to clipboard'
+      });
+    } catch {
+      toast({
+        title: 'Copy Failed',
+        description: 'Could not copy hash',
+        variant: 'destructive'
+      });
+    }
+  };
+
+  const uniqueCourses = useMemo(() => {
+    return ['All', ...Array.from(new Set(certificates.map((c: any) => c.course))).filter(Boolean)];
+  }, [certificates]);
+
+  const uniqueYears = useMemo(() => {
+    return ['All', ...Array.from(new Set(certificates.map((c: any) => String(c.issueYear)))).filter(Boolean)];
+  }, [certificates]);
+
+  const filteredCertificates = useMemo(() => {
+    return certificates.filter((cert: any) => {
+      const matchesSearch =
+        !searchTerm ||
+        cert.studentName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        cert.enrollmentNumber.toString().includes(searchTerm) ||
+        (cert.certificateNumber || '').toLowerCase().includes(searchTerm.toLowerCase());
+
+      const matchesCourse = courseFilter === 'All' || cert.course === courseFilter;
+      const matchesYear = yearFilter === 'All' || String(cert.issueYear) === yearFilter;
+
+      return matchesSearch && matchesCourse && matchesYear;
+    });
+  }, [certificates, searchTerm, courseFilter, yearFilter]);
 
   const actions = [
     {
@@ -210,9 +256,7 @@ export default function AdminPortal() {
                   <CheckCircle2 className="h-6 w-6 text-success" />
                 </div>
                 <CardTitle className="text-xl">Wallet Connected</CardTitle>
-                <CardDescription className="break-all">
-                  {walletAddress}
-                </CardDescription>
+                <CardDescription className="break-all">{walletAddress}</CardDescription>
               </CardHeader>
 
               <CardContent className="space-y-4">
@@ -314,7 +358,6 @@ export default function AdminPortal() {
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
-
       <div className="container py-8">
         <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
@@ -323,7 +366,7 @@ export default function AdminPortal() {
               Admin Dashboard
             </h1>
             <p className="mt-1 text-muted-foreground">
-              Manage certificates and students on the blockchain
+              Manage and monitor issued certificates
             </p>
           </div>
 
@@ -371,100 +414,196 @@ export default function AdminPortal() {
           </CardContent>
         </Card>
 
-        {/* Stats Cards */}
-        <div className="mb-8 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <Card className="glass-card">
-            <CardContent className="py-5">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">Total Students</p>
-                  <h3 className="mt-2 text-2xl font-bold">
-                    {statsLoading ? '...' : stats.totalStudents}
-                  </h3>
-                </div>
-                <div className="rounded-2xl bg-primary/10 p-3">
-                  <Users className="h-6 w-6 text-primary" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="glass-card">
-            <CardContent className="py-5">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">Total Certificates</p>
-                  <h3 className="mt-2 text-2xl font-bold">
-                    {statsLoading ? '...' : stats.totalCertificates}
-                  </h3>
-                </div>
-                <div className="rounded-2xl bg-success/10 p-3">
-                  <Files className="h-6 w-6 text-success" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="glass-card">
-            <CardContent className="py-5">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">Admin Wallet Status</p>
-                  <h3 className="mt-2 text-lg font-bold text-success">
-                    {isAdmin ? 'Authorized' : 'Unauthorized'}
-                  </h3>
-                </div>
-                <div className="rounded-2xl bg-success/10 p-3">
-                  <Wallet className="h-6 w-6 text-success" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="glass-card">
-            <CardContent className="py-5">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">Contract Connected</p>
-                  <h3 className="mt-2 text-lg font-bold text-primary">
-                    {connectedContract ? 'Yes' : 'No'}
-                  </h3>
-                </div>
-                <div className="rounded-2xl bg-primary/10 p-3">
-                  <LinkIcon className="h-6 w-6 text-primary" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
         {currentAction === null ? (
-          <div className="grid gap-6 md:grid-cols-3">
-            {actions.map((action) => {
-              const Icon = action.icon;
-
-              return (
-                <Card
-                  key={action.id}
-                  className="glass-card cursor-pointer transition-all duration-300 hover:-translate-y-1 hover:shadow-xl"
-                  onClick={() => setCurrentAction(action.id)}
-                >
-                  <CardHeader>
-                    <div className="mb-2 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10">
-                      <Icon className="h-7 w-7 text-primary" />
+          <>
+            <div className="mb-8 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+              <Card className="glass-card">
+                <CardContent className="py-5">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-muted-foreground">Total Certificates</p>
+                      <h3 className="mt-2 text-2xl font-bold">
+                        {statsLoading ? '...' : stats.totalCertificates}
+                      </h3>
                     </div>
-                    <CardTitle className="text-xl">{action.title}</CardTitle>
-                  </CardHeader>
+                    <div className="rounded-2xl bg-success/10 p-3">
+                      <Files className="h-6 w-6 text-success" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+     
 
-                  <CardContent>
-                    <CardDescription className="text-base">
-                      {action.description}
-                    </CardDescription>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
+              <Card className="glass-card">
+                <CardContent className="py-5">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-muted-foreground">Total Students</p>
+                      <h3 className="mt-2 text-2xl font-bold">
+                        {statsLoading ? '...' : stats.totalStudents}
+                      </h3>
+                    </div>
+                    <div className="rounded-2xl bg-primary/10 p-3">
+                      <Users className="h-6 w-6 text-primary" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="glass-card">
+                <CardContent className="py-5">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-muted-foreground">Courses</p>
+                      <h3 className="mt-2 text-2xl font-bold">
+                        {Array.from(new Set(certificates.map((c: any) => c.course))).length}
+                      </h3>
+                    </div>
+                    <div className="rounded-2xl bg-purple-500/10 p-3">
+                      <List className="h-6 w-6 text-purple-500" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="glass-card">
+                <CardContent className="py-5">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-muted-foreground">Contract Connected</p>
+                      <h3 className="mt-2 text-lg font-bold text-primary">
+                        {connectedContract ? 'Yes' : 'No'}
+                      </h3>
+                    </div>
+                    <div className="rounded-2xl bg-orange-500/10 p-3">
+                      <LinkIcon className="h-6 w-6 text-orange-500" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            <div className="mb-8">
+              <AnalyticsDashboard />
+            </div>
+
+            <div className="mb-6 flex flex-col gap-4 md:flex-row">
+              <div className="relative md:max-w-xl md:flex-1">
+                <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search by name, enrollment or certificate number"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
+
+              <select
+                value={courseFilter}
+                onChange={(e) => setCourseFilter(e.target.value)}
+                className="rounded-md border bg-background px-3 py-2 text-sm"
+              >
+                {uniqueCourses.map((course) => (
+                  <option key={course} value={course}>
+                    {course === 'All' ? 'All Courses' : course}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                value={yearFilter}
+                onChange={(e) => setYearFilter(e.target.value)}
+                className="rounded-md border bg-background px-3 py-2 text-sm"
+              >
+                {uniqueYears.map((year) => (
+                  <option key={year} value={year}>
+                    {year === 'All' ? 'All Years' : year}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <Card className="mb-8 glass-card">
+              <CardHeader>
+                <CardTitle>Issued Certificates</CardTitle>
+              </CardHeader>
+
+              <CardContent>
+                {filteredCertificates.length === 0 ? (
+                  <p className="py-8 text-center text-muted-foreground">
+                    No certificates found.
+                  </p>
+                ) : (
+                  <div className="overflow-x-auto rounded-xl border">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b bg-muted/30 text-left">
+                          <th className="px-4 py-3 font-medium">Student</th>
+                          <th className="px-4 py-3 font-medium">Enrollment</th>
+                          <th className="px-4 py-3 font-medium">Course</th>
+                          <th className="px-4 py-3 font-medium">Year</th>
+                          <th className="px-4 py-3 font-medium">Certificate Number</th>
+                          <th className="px-4 py-3 font-medium">Hash</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredCertificates.map((cert: any) => (
+                          <tr key={cert.certificateHash} className="border-b">
+                            <td className="px-4 py-4">{cert.studentName}</td>
+                            <td className="px-4 py-4">{cert.enrollmentNumber}</td>
+                            <td className="px-4 py-4">{cert.course}</td>
+                            <td className="px-4 py-4">{cert.issueYear}</td>
+                            <td className="px-4 py-4">{cert.certificateNumber}</td>
+                            <td className="px-4 py-4">
+                              <div className="flex items-center gap-2">
+                                <span className="font-mono text-xs">
+                                  {cert.certificateHash.slice(0, 12)}...
+                                </span>
+                                <Button
+                                  size="icon"
+                                  variant="outline"
+                                  onClick={() => copyHash(cert.certificateHash)}
+                                >
+                                  <Copy className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <div className="grid gap-6 md:grid-cols-3">
+              {actions.map((action) => {
+                const Icon = action.icon;
+
+                return (
+                  <Card
+                    key={action.id}
+                    className="glass-card cursor-pointer transition-all duration-300 hover:-translate-y-1 hover:shadow-xl"
+                    onClick={() => setCurrentAction(action.id)}
+                  >
+                    <CardHeader>
+                      <div className="mb-2 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10">
+                        <Icon className="h-7 w-7 text-primary" />
+                      </div>
+                      <CardTitle className="text-xl">{action.title}</CardTitle>
+                    </CardHeader>
+
+                    <CardContent>
+                      <CardDescription className="text-base">
+                        {action.description}
+                      </CardDescription>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          </>
         ) : (
           <div className="space-y-6">
             <Button
@@ -472,7 +611,7 @@ export default function AdminPortal() {
               onClick={() => setCurrentAction(null)}
               className="gap-2"
             >
-              ← Back to Actions
+              ← Back to Dashboard
             </Button>
 
             {currentAction === 'register' && <RegisterStudent />}

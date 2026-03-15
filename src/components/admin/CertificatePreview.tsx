@@ -113,11 +113,11 @@ export const CertificatePreview = forwardRef<HTMLDivElement, CertificatePreviewP
                 <p className="mb-2 text-lg font-semibold text-[#333]">Scan to Verify</p>
                 <div className="inline-block rounded-lg border bg-white p-3">
                 <QRCodeSVG
-                    value={certificateHash || 'preview-hash'}
-                    size={180}
-                    level="H"
-                    includeMargin={true}
-                />
+  value={`${window.location.origin}/verify?hash=${certificateHash || 'preview-hash'}`}
+  size={180}
+  level="H"
+  includeMargin={true}
+/>
                 </div>
               </div>
             </div>

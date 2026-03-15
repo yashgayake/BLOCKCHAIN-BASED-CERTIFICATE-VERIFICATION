@@ -43,6 +43,7 @@ import { ethers } from 'ethers';
 import { CertificatePreview } from '@/components/admin/CertificatePreview';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
+import { useLocation } from 'react-router-dom';
 
 interface VerificationResult {
   isValid: boolean;
@@ -66,6 +67,7 @@ export default function VerifyCertificate() {
 
   const { getCertificateByHash } = useAppContext();
   const { toast } = useToast();
+  const location = useLocation();
 
   useEffect(() => {
     return () => {
@@ -75,8 +77,27 @@ export default function VerifyCertificate() {
     };
   }, []);
 
+  const extractHashFromInput = (input: string) => {
+    const trimmed = input.trim();
+
+    if (!trimmed) return '';
+
+    if (trimmed.includes('/verify?hash=')) {
+      try {
+        const url = new URL(trimmed);
+        return url.searchParams.get('hash') || trimmed;
+      } catch {
+        return trimmed;
+      }
+    }
+
+    return trimmed;
+  };
+
   const verifyCertificate = async (hash: string) => {
-    if (!hash.trim()) {
+    const cleanHash = extractHashFromInput(hash);
+
+    if (!cleanHash) {
       toast({
         title: 'Error',
         description: 'Please enter a certificate hash',
@@ -98,10 +119,10 @@ export default function VerifyCertificate() {
         provider
       );
 
-      const isValid = await contract.verifyCertificateView(hash);
+      const isValid = await contract.verifyCertificateView(cleanHash);
 
       if (isValid) {
-        const certData = await contract.getCertificate(hash);
+        const certData = await contract.getCertificate(cleanHash);
         const certificate: Certificate = {
           studentName: certData.studentName,
           enrollmentNumber: certData.enrollmentNumber,
@@ -109,12 +130,12 @@ export default function VerifyCertificate() {
           institution: certData.institution,
           issueYear: certData.issueYear.toNumber(),
           issueDate: certData.issueDate.toNumber(),
-          certificateHash: hash,
+          certificateHash: cleanHash,
           ipfsHash: certData.ipfsHash,
           issuerAddress: certData.issuerAddress
         };
 
-        const localData = getCertificateByHash(hash);
+        const localData = getCertificateByHash(cleanHash);
 
         setVerificationResult({
           isValid: true,
@@ -142,7 +163,7 @@ export default function VerifyCertificate() {
     } catch (err: any) {
       console.error('Verification error:', err);
 
-      const localCert = getCertificateByHash(hash);
+      const localCert = getCertificateByHash(cleanHash);
 
       if (localCert) {
         setVerificationResult({
@@ -171,6 +192,16 @@ export default function VerifyCertificate() {
       setIsVerifying(false);
     }
   };
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const urlHash = params.get('hash');
+
+    if (urlHash) {
+      setSearchHash(urlHash);
+      verifyCertificate(urlHash);
+    }
+  }, [location.search]);
 
   const startCameraScanner = async () => {
     setShowCamera(true);
@@ -248,26 +279,45 @@ export default function VerifyCertificate() {
 
     if (verificationResult?.certificate) {
       const cert = verificationResult.certificate;
-      return `CERT-${cert.issueYear}-${cert.enrollmentNumber.toString().slice(-4).padStart(4, '0')}`;
+      return `CERT-${cert.issueYear}-${cert.enrollmentNumber
+        .toString()
+        .slice(-4)
+        .padStart(4, '0')}`;
     }
 
     return 'CERTIFICATE';
   };
 
   const getStudentName = () => {
-    return verificationResult?.certificate?.studentName || verificationResult?.localData?.studentName || 'Student Name';
+    return (
+      verificationResult?.certificate?.studentName ||
+      verificationResult?.localData?.studentName ||
+      'Student Name'
+    );
   };
 
   const getCourse = () => {
-    return verificationResult?.certificate?.course || verificationResult?.localData?.course || 'Course Name';
+    return (
+      verificationResult?.certificate?.course ||
+      verificationResult?.localData?.course ||
+      'Course Name'
+    );
   };
 
   const getInstitution = () => {
-    return verificationResult?.certificate?.institution || verificationResult?.localData?.institution || 'Institute Name';
+    return (
+      verificationResult?.certificate?.institution ||
+      verificationResult?.localData?.institution ||
+      'Institute Name'
+    );
   };
 
   const getCertificateHash = () => {
-    return verificationResult?.certificate?.certificateHash || verificationResult?.localData?.certificateHash || '';
+    return (
+      verificationResult?.certificate?.certificateHash ||
+      verificationResult?.localData?.certificateHash ||
+      ''
+    );
   };
 
   const getIssueDateString = () => {
@@ -296,7 +346,7 @@ export default function VerifyCertificate() {
       setIsDownloadingPdf(true);
 
       const canvas = await html2canvas(previewRef.current, {
-        scale: 2,
+        scale: 4,
         useCORS: true,
         backgroundColor: '#ffffff'
       });
@@ -549,7 +599,7 @@ export default function VerifyCertificate() {
               <CardHeader>
                 <CardTitle>Choose Verification Method</CardTitle>
                 <CardDescription>
-                  Verify using certificate hash, QR code scan, or file upload
+                  Verify using certificate hash, QR code scan, or image upload
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -571,10 +621,10 @@ export default function VerifyCertificate() {
 
                   <TabsContent value="hash" className="mt-6 space-y-4">
                     <div>
-                      <Label htmlFor="hash">Certificate Hash</Label>
+                      <Label htmlFor="hash">Certificate Hash or Verify Link</Label>
                       <Input
                         id="hash"
-                        placeholder="Enter certificate hash (0x...)"
+                        placeholder="Enter certificate hash or public verify URL"
                         value={searchHash}
                         onChange={(e) => setSearchHash(e.target.value)}
                         className="mt-2 font-mono"
@@ -618,6 +668,9 @@ export default function VerifyCertificate() {
                       <p className="mb-4 text-muted-foreground">
                         Upload a certificate image with QR code
                       </p>
+                      <p className="mt-2 text-xs text-muted-foreground">
+                        PNG/JPG works best. PDF upload may not scan reliably.
+                      </p>
                       <input
                         ref={fileInputRef}
                         type="file"
@@ -626,7 +679,7 @@ export default function VerifyCertificate() {
                         className="hidden"
                         id="file-upload"
                       />
-                      <Button asChild className="gap-2">
+                      <Button asChild className="mt-4 gap-2">
                         <label htmlFor="file-upload" className="cursor-pointer">
                           <Upload className="h-4 w-4" />
                           Choose File
@@ -640,7 +693,7 @@ export default function VerifyCertificate() {
           )}
 
           <Dialog open={showCertificatePreview} onOpenChange={setShowCertificatePreview}>
-            <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+            <DialogContent className="max-h-[90vh] max-w-6xl overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Verified Certificate Preview</DialogTitle>
               </DialogHeader>
