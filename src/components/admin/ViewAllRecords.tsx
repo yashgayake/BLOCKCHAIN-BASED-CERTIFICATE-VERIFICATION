@@ -1,3 +1,21 @@
+// on-chain certificateNumber add ho gaya
+
+// new student fields use ho rahe hain:
+
+// mobileNumber
+
+// department
+
+// batchYear
+
+
+// student course hata diya gaya
+
+// certificate table me certificate number column add hai
+
+
+// Full updated src/components/admin/ViewAllRecords.tsx
+
 import { useEffect, useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -15,7 +33,9 @@ import {
   Search,
   RefreshCw,
   Copy,
-  Check
+  Check,
+  Trash2,
+  RotateCcw
 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
@@ -25,6 +45,7 @@ import { useToast } from '@/hooks/use-toast';
 
 interface BlockchainCertificate {
   certificateHash: string;
+  certificateNumber: string;
   studentName: string;
   enrollmentNumber: string;
   course: string;
@@ -39,10 +60,14 @@ interface BlockchainStudent {
   enrollmentNumber: string;
   name: string;
   email: string;
-  course: string;
+  mobileNumber: string;
+  department: string;
+  batchYear: string;
   isRegistered: boolean;
   registrationDate: number;
 }
+
+const FRESH_START_KEY = 'recordsFreshStartTimestamp';
 
 export function ViewAllRecords() {
   const { service } = useBlockchain();
@@ -58,9 +83,13 @@ export function ViewAllRecords() {
 
   const [certificateCourseFilter, setCertificateCourseFilter] = useState('All');
   const [certificateYearFilter, setCertificateYearFilter] = useState('All');
-  const [studentCourseFilter, setStudentCourseFilter] = useState('All');
+  const [studentDepartmentFilter, setStudentDepartmentFilter] = useState('All');
 
   const [copiedHash, setCopiedHash] = useState<string>('');
+  const [freshStartTimestamp, setFreshStartTimestamp] = useState<number | null>(() => {
+    const saved = localStorage.getItem(FRESH_START_KEY);
+    return saved ? Number(saved) : null;
+  });
 
   useEffect(() => {
     loadCertificates();
@@ -78,6 +107,7 @@ export function ViewAllRecords() {
           const cert = await service.getCertificate(hash);
           return {
             certificateHash: hash,
+            certificateNumber: cert.certificateNumber,
             studentName: cert.studentName,
             enrollmentNumber: cert.enrollmentNumber,
             course: cert.course,
@@ -115,7 +145,9 @@ export function ViewAllRecords() {
             enrollmentNumber: enrollment,
             name: student.name,
             email: student.email,
-            course: student.course,
+            mobileNumber: student.mobileNumber,
+            department: student.department,
+            batchYear: student.batchYear,
             isRegistered: student.isRegistered,
             registrationDate: student.registrationDate
           };
@@ -134,25 +166,56 @@ export function ViewAllRecords() {
     }
   };
 
+  const startFreshRecords = () => {
+    const now = Math.floor(Date.now() / 1000);
+    localStorage.setItem(FRESH_START_KEY, String(now));
+    setFreshStartTimestamp(now);
+
+    toast({
+      title: 'Fresh Start Enabled',
+      description: 'Old blockchain records are now hidden. Only new records will be shown.'
+    });
+  };
+
+  const resetFreshRecordsFilter = () => {
+    localStorage.removeItem(FRESH_START_KEY);
+    setFreshStartTimestamp(null);
+
+    toast({
+      title: 'Filter Removed',
+      description: 'All blockchain records will be shown again.'
+    });
+  };
+
+  const visibleCertificates = useMemo(() => {
+    if (!freshStartTimestamp) return certificates;
+    return certificates.filter((cert) => cert.issueDate >= freshStartTimestamp);
+  }, [certificates, freshStartTimestamp]);
+
+  const visibleStudents = useMemo(() => {
+    if (!freshStartTimestamp) return students;
+    return students.filter((student) => student.registrationDate >= freshStartTimestamp);
+  }, [students, freshStartTimestamp]);
+
   const certificateCourses = useMemo(() => {
-    const uniqueCourses = Array.from(new Set(certificates.map((c) => c.course))).filter(Boolean);
+    const uniqueCourses = Array.from(new Set(visibleCertificates.map((c) => c.course))).filter(Boolean);
     return ['All', ...uniqueCourses.sort()];
-  }, [certificates]);
+  }, [visibleCertificates]);
 
   const certificateYears = useMemo(() => {
-    const uniqueYears = Array.from(new Set(certificates.map((c) => String(c.issueYear)))).filter(Boolean);
+    const uniqueYears = Array.from(new Set(visibleCertificates.map((c) => String(c.issueYear)))).filter(Boolean);
     return ['All', ...uniqueYears.sort((a, b) => Number(b) - Number(a))];
-  }, [certificates]);
+  }, [visibleCertificates]);
 
-  const studentCourses = useMemo(() => {
-    const uniqueCourses = Array.from(new Set(students.map((s) => s.course))).filter(Boolean);
-    return ['All', ...uniqueCourses.sort()];
-  }, [students]);
+  const studentDepartments = useMemo(() => {
+    const uniqueDepartments = Array.from(new Set(visibleStudents.map((s) => s.department))).filter(Boolean);
+    return ['All', ...uniqueDepartments.sort()];
+  }, [visibleStudents]);
 
   const filteredCertificates = useMemo(() => {
     const query = certificateSearch.trim().toLowerCase();
 
-    return certificates.filter((cert) => {
+    return visibleCertificates.filter((cert) => {
       const matchesSearch =
         !query ||
         cert.studentName.toLowerCase().includes(query) ||
@@ -160,6 +223,7 @@ export function ViewAllRecords() {
         cert.course.toLowerCase().includes(query) ||
         cert.institution.toLowerCase().includes(query) ||
         cert.certificateHash.toLowerCase().includes(query) ||
+        cert.certificateNumber.toLowerCase().includes(query) ||
         String(cert.issueYear).includes(query);
 
       const matchesCourse =
@@ -170,25 +234,32 @@ export function ViewAllRecords() {
 
       return matchesSearch && matchesCourse && matchesYear;
     });
-  }, [certificates, certificateSearch, certificateCourseFilter, certificateYearFilter]);
+  }, [
+    visibleCertificates,
+    certificateSearch,
+    certificateCourseFilter,
+    certificateYearFilter
+  ]);
 
   const filteredStudents = useMemo(() => {
     const query = studentSearch.trim().toLowerCase();
 
-    return students.filter((student) => {
+    return visibleStudents.filter((student) => {
       const matchesSearch =
         !query ||
         student.name.toLowerCase().includes(query) ||
         student.enrollmentNumber.toLowerCase().includes(query) ||
-        student.course.toLowerCase().includes(query) ||
-        student.email.toLowerCase().includes(query);
+        student.email.toLowerCase().includes(query) ||
+        student.mobileNumber.toLowerCase().includes(query) ||
+        student.department.toLowerCase().includes(query) ||
+        student.batchYear.toLowerCase().includes(query);
 
-      const matchesCourse =
-        studentCourseFilter === 'All' || student.course === studentCourseFilter;
+      const matchesDepartment =
+        studentDepartmentFilter === 'All' || student.department === studentDepartmentFilter;
 
-      return matchesSearch && matchesCourse;
+      return matchesSearch && matchesDepartment;
     });
-  }, [students, studentSearch, studentCourseFilter]);
+  }, [visibleStudents, studentSearch, studentDepartmentFilter]);
 
   const handleCopyHash = async (hash: string) => {
     try {
@@ -215,35 +286,66 @@ export function ViewAllRecords() {
   return (
     <Card className="glass-card">
       <CardHeader>
-        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <CardTitle className="flex items-center gap-2">
-            <List className="h-5 w-5" />
-            All Records
-          </CardTitle>
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <List className="h-5 w-5" />
+              All Records
+            </CardTitle>
 
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-2"
-              onClick={loadCertificates}
-              disabled={loadingCertificates}
-            >
-              <RefreshCw className={`h-4 w-4 ${loadingCertificates ? 'animate-spin' : ''}`} />
-              Certificates
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2"
+                onClick={loadCertificates}
+                disabled={loadingCertificates}
+              >
+                <RefreshCw className={`h-4 w-4 ${loadingCertificates ? 'animate-spin' : ''}`} />
+                Certificates
+              </Button>
 
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-2"
-              onClick={loadStudents}
-              disabled={loadingStudents}
-            >
-              <RefreshCw className={`h-4 w-4 ${loadingStudents ? 'animate-spin' : ''}`} />
-              Students
-            </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2"
+                onClick={loadStudents}
+                disabled={loadingStudents}
+              >
+                <RefreshCw className={`h-4 w-4 ${loadingStudents ? 'animate-spin' : ''}`} />
+                Students
+              </Button>
+
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2"
+                onClick={startFreshRecords}
+              >
+                <Trash2 className="h-4 w-4" />
+                Start Fresh
+              </Button>
+
+              {freshStartTimestamp && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-2"
+                  onClick={resetFreshRecordsFilter}
+                >
+                  <RotateCcw className="h-4 w-4" />
+                  Show All
+                </Button>
+              )}
+            </div>
           </div>
+
+          {freshStartTimestamp && (
+            <p className="text-sm text-muted-foreground">
+              Fresh mode is active. Showing only records created after{' '}
+              {new Date(freshStartTimestamp * 1000).toLocaleString()}.
+            </p>
+          )}
         </div>
       </CardHeader>
 
@@ -305,13 +407,14 @@ export function ViewAllRecords() {
               <p className="py-8 text-center text-muted-foreground">
                 {certificateSearch || certificateCourseFilter !== 'All' || certificateYearFilter !== 'All'
                   ? 'No matching certificates found.'
-                  : 'No certificates issued yet.'}
+                  : 'No certificates available in current view.'}
               </p>
             ) : (
               <div className="overflow-x-auto rounded-xl border">
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead>Certificate No</TableHead>
                       <TableHead>Student</TableHead>
                       <TableHead>Enrollment</TableHead>
                       <TableHead>Course</TableHead>
@@ -325,6 +428,9 @@ export function ViewAllRecords() {
                   <TableBody>
                     {filteredCertificates.map((cert) => (
                       <TableRow key={cert.certificateHash}>
+                        <TableCell className="font-semibold">
+                          {cert.certificateNumber || '-'}
+                        </TableCell>
                         <TableCell className="font-medium">{cert.studentName}</TableCell>
                         <TableCell>{cert.enrollmentNumber}</TableCell>
                         <TableCell>{cert.course}</TableCell>
@@ -377,13 +483,13 @@ export function ViewAllRecords() {
               </div>
 
               <select
-                value={studentCourseFilter}
-                onChange={(e) => setStudentCourseFilter(e.target.value)}
+                value={studentDepartmentFilter}
+                onChange={(e) => setStudentDepartmentFilter(e.target.value)}
                 className="h-10 rounded-md border bg-background px-3 text-sm"
               >
-                {studentCourses.map((course) => (
-                  <option key={course} value={course}>
-                    {course === 'All' ? 'All Courses' : course}
+                {studentDepartments.map((department) => (
+                  <option key={department} value={department}>
+                    {department === 'All' ? 'All Departments' : department}
                   </option>
                 ))}
               </select>
@@ -395,9 +501,9 @@ export function ViewAllRecords() {
               </p>
             ) : filteredStudents.length === 0 ? (
               <p className="py-8 text-center text-muted-foreground">
-                {studentSearch || studentCourseFilter !== 'All'
+                {studentSearch || studentDepartmentFilter !== 'All'
                   ? 'No matching students found.'
-                  : 'No students registered yet.'}
+                  : 'No students available in current view.'}
               </p>
             ) : (
               <div className="overflow-x-auto rounded-xl border">
@@ -406,8 +512,10 @@ export function ViewAllRecords() {
                     <TableRow>
                       <TableHead>Name</TableHead>
                       <TableHead>Enrollment</TableHead>
-                      <TableHead>Course</TableHead>
                       <TableHead>Email</TableHead>
+                      <TableHead>Mobile</TableHead>
+                      <TableHead>Department</TableHead>
+                      <TableHead>Batch / Year</TableHead>
                       <TableHead>Registered</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -417,8 +525,10 @@ export function ViewAllRecords() {
                       <TableRow key={student.enrollmentNumber}>
                         <TableCell className="font-medium">{student.name}</TableCell>
                         <TableCell>{student.enrollmentNumber}</TableCell>
-                        <TableCell>{student.course}</TableCell>
                         <TableCell>{student.email || '-'}</TableCell>
+                        <TableCell>{student.mobileNumber || '-'}</TableCell>
+                        <TableCell>{student.department || '-'}</TableCell>
+                        <TableCell>{student.batchYear || '-'}</TableCell>
                         <TableCell>
                           {student.registrationDate
                             ? new Date(student.registrationDate * 1000).toLocaleDateString()

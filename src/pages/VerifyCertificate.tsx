@@ -1,13 +1,25 @@
+// on-chain certificateNumber read hoga
+
+// verify result me same number show hoga
+
+// hash ya verify link dono se verify ho sakta hai
+
+// upload QR image se verify ho sakta hai
+
+// camera feature hata diya gaya hai
+
+// PDF preview/download bhi same on-chain certificate number ke saath hoga
+
+
+// Full updated src/pages/VerifyCertificate.tsx
+
 import { useState, useRef, useEffect } from 'react';
 import {
   CheckCircle,
   Search,
-  Camera,
   Upload,
   XCircle,
   User,
-  AlertCircle,
-  X,
   Loader2,
   Eye,
   Download
@@ -55,27 +67,17 @@ interface VerificationResult {
 export default function VerifyCertificate() {
   const [searchHash, setSearchHash] = useState('');
   const [isVerifying, setIsVerifying] = useState(false);
-  const [verificationResult, setVerificationResult] = useState<VerificationResult | null>(null);
-  const [showCamera, setShowCamera] = useState(false);
-  const [cameraError, setCameraError] = useState<string | null>(null);
+  const [verificationResult, setVerificationResult] =
+    useState<VerificationResult | null>(null);
   const [showCertificatePreview, setShowCertificatePreview] = useState(false);
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
 
-  const scannerRef = useRef<Html5Qrcode | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const previewRef = useRef<HTMLDivElement | null>(null);
 
   const { getCertificateByHash } = useAppContext();
   const { toast } = useToast();
   const location = useLocation();
-
-  useEffect(() => {
-    return () => {
-      if (scannerRef.current) {
-        scannerRef.current.stop().catch(() => {});
-      }
-    };
-  }, []);
 
   const extractHashFromInput = (input: string) => {
     const trimmed = input.trim();
@@ -114,7 +116,7 @@ export default function VerifyCertificate() {
         DEFAULT_CONTRACT_ADDRESS,
         [
           'function verifyCertificateView(string _certificateHash) public view returns (bool)',
-          'function getCertificate(string _certificateHash) public view returns (string studentName, string enrollmentNumber, string course, string institution, uint256 issueYear, uint256 issueDate, string ipfsHash, address issuerAddress)'
+          'function getCertificate(string _certificateHash) public view returns (string certificateNumber, string studentName, string enrollmentNumber, string course, string institution, uint256 issueYear, uint256 issueDate, string ipfsHash, address issuerAddress)'
         ],
         provider
       );
@@ -123,7 +125,9 @@ export default function VerifyCertificate() {
 
       if (isValid) {
         const certData = await contract.getCertificate(cleanHash);
+
         const certificate: Certificate = {
+          certificateNumber: certData.certificateNumber,
           studentName: certData.studentName,
           enrollmentNumber: certData.enrollmentNumber,
           course: certData.course,
@@ -174,7 +178,8 @@ export default function VerifyCertificate() {
 
         toast({
           title: 'Certificate Found (Offline)',
-          description: 'Verified from local records. Connect to Ganache for blockchain verification.'
+          description:
+            'Verified from local records. Connect to Ganache for blockchain verification.'
         });
       } else {
         setVerificationResult({
@@ -202,46 +207,6 @@ export default function VerifyCertificate() {
       verifyCertificate(urlHash);
     }
   }, [location.search]);
-
-  const startCameraScanner = async () => {
-    setShowCamera(true);
-    setCameraError(null);
-
-    try {
-      const html5Qrcode = new Html5Qrcode('qr-reader');
-      scannerRef.current = html5Qrcode;
-
-      await html5Qrcode.start(
-        { facingMode: 'environment' },
-        {
-          fps: 10,
-          qrbox: { width: 250, height: 250 }
-        },
-        (decodedText) => {
-          html5Qrcode.stop().then(() => {
-            setShowCamera(false);
-            setSearchHash(decodedText);
-            verifyCertificate(decodedText);
-          });
-        },
-        () => {}
-      );
-    } catch (err: any) {
-      setCameraError(err.message || 'Failed to start camera');
-      setShowCamera(false);
-    }
-  };
-
-  const stopCameraScanner = async () => {
-    if (scannerRef.current) {
-      try {
-        await scannerRef.current.stop();
-      } catch (err) {
-        console.error('Error stopping scanner:', err);
-      }
-    }
-    setShowCamera(false);
-  };
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -273,6 +238,10 @@ export default function VerifyCertificate() {
   };
 
   const getCertificateNumber = () => {
+    if (verificationResult?.certificate?.certificateNumber) {
+      return verificationResult.certificate.certificateNumber;
+    }
+
     if (verificationResult?.localData?.certificateNumber) {
       return verificationResult.localData.certificateNumber;
     }
@@ -345,8 +314,10 @@ export default function VerifyCertificate() {
     try {
       setIsDownloadingPdf(true);
 
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
       const canvas = await html2canvas(previewRef.current, {
-        scale: 4,
+        scale: 3,
         useCORS: true,
         backgroundColor: '#ffffff'
       });
@@ -354,24 +325,7 @@ export default function VerifyCertificate() {
       const imgData = canvas.toDataURL('image/png');
       const pdf = new jsPDF('p', 'mm', 'a4');
 
-      const pdfWidth = 210;
-      const pdfHeight = 297;
-      const imgWidth = pdfWidth;
-      const imgHeight = (canvas.height * imgWidth) / canvas.width;
-
-      let heightLeft = imgHeight;
-      let position = 0;
-
-      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-      heightLeft -= pdfHeight;
-
-      while (heightLeft > 0) {
-        position = heightLeft - imgHeight;
-        pdf.addPage();
-        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-        heightLeft -= pdfHeight;
-      }
-
+      pdf.addImage(imgData, 'PNG', 0, 0, 210, 297);
       pdf.save(`${getCertificateNumber()}.pdf`);
 
       toast({
@@ -410,29 +364,6 @@ export default function VerifyCertificate() {
 
           <div id="file-scanner" style={{ display: 'none' }} />
 
-          <Dialog open={showCamera} onOpenChange={(open) => !open && stopCameraScanner()}>
-            <DialogContent className="sm:max-w-md">
-              <DialogHeader>
-                <DialogTitle className="flex items-center justify-between">
-                  Scan QR Code
-                  <Button variant="ghost" size="icon" onClick={stopCameraScanner}>
-                    <X className="h-4 w-4" />
-                  </Button>
-                </DialogTitle>
-              </DialogHeader>
-              <div className="py-4">
-                {cameraError ? (
-                  <div className="py-8 text-center">
-                    <AlertCircle className="mx-auto mb-4 h-12 w-12 text-destructive" />
-                    <p className="text-destructive">{cameraError}</p>
-                  </div>
-                ) : (
-                  <div id="qr-reader" className="w-full" />
-                )}
-              </div>
-            </DialogContent>
-          </Dialog>
-
           {verificationResult && (
             <Card
               className={`mb-6 ${
@@ -470,6 +401,7 @@ export default function VerifyCertificate() {
                         <p className="text-sm text-muted-foreground">Student Name</p>
                         <p className="font-medium">{getStudentName()}</p>
                       </div>
+
                       <div className="space-y-1">
                         <p className="text-sm text-muted-foreground">Enrollment Number</p>
                         <p className="font-medium">
@@ -477,14 +409,17 @@ export default function VerifyCertificate() {
                             verificationResult.localData?.enrollmentNumber}
                         </p>
                       </div>
+
                       <div className="space-y-1">
                         <p className="text-sm text-muted-foreground">Course</p>
                         <p className="font-medium">{getCourse()}</p>
                       </div>
+
                       <div className="space-y-1">
                         <p className="text-sm text-muted-foreground">Institution</p>
                         <p className="font-medium">{getInstitution()}</p>
                       </div>
+
                       <div className="space-y-1">
                         <p className="text-sm text-muted-foreground">Issue Year</p>
                         <p className="font-medium">
@@ -492,6 +427,7 @@ export default function VerifyCertificate() {
                             verificationResult.localData?.issueYear}
                         </p>
                       </div>
+
                       <div className="space-y-1">
                         <p className="text-sm text-muted-foreground">Issue Date</p>
                         <p className="font-medium">
@@ -599,19 +535,16 @@ export default function VerifyCertificate() {
               <CardHeader>
                 <CardTitle>Choose Verification Method</CardTitle>
                 <CardDescription>
-                  Verify using certificate hash, QR code scan, or image upload
+                  Verify using certificate hash, verify link, or QR image upload
                 </CardDescription>
               </CardHeader>
+
               <CardContent>
                 <Tabs defaultValue="hash" className="w-full">
-                  <TabsList className="grid w-full grid-cols-3">
+                  <TabsList className="grid w-full grid-cols-2">
                     <TabsTrigger value="hash" className="gap-2">
                       <Search className="h-4 w-4" />
-                      Hash
-                    </TabsTrigger>
-                    <TabsTrigger value="camera" className="gap-2">
-                      <Camera className="h-4 w-4" />
-                      Camera
+                      Hash / Link
                     </TabsTrigger>
                     <TabsTrigger value="upload" className="gap-2">
                       <Upload className="h-4 w-4" />
@@ -630,6 +563,7 @@ export default function VerifyCertificate() {
                         className="mt-2 font-mono"
                       />
                     </div>
+
                     <Button
                       onClick={() => verifyCertificate(searchHash)}
                       disabled={isVerifying}
@@ -649,19 +583,6 @@ export default function VerifyCertificate() {
                     </Button>
                   </TabsContent>
 
-                  <TabsContent value="camera" className="mt-6 space-y-4">
-                    <div className="rounded-lg border-2 border-dashed border-border py-8 text-center">
-                      <Camera className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
-                      <p className="mb-4 text-muted-foreground">
-                        Scan the QR code on the certificate
-                      </p>
-                      <Button onClick={startCameraScanner} className="gap-2">
-                        <Camera className="h-4 w-4" />
-                        Start Camera
-                      </Button>
-                    </div>
-                  </TabsContent>
-
                   <TabsContent value="upload" className="mt-6 space-y-4">
                     <div className="rounded-lg border-2 border-dashed border-border py-8 text-center">
                       <Upload className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
@@ -671,6 +592,7 @@ export default function VerifyCertificate() {
                       <p className="mt-2 text-xs text-muted-foreground">
                         PNG/JPG works best. PDF upload may not scan reliably.
                       </p>
+
                       <input
                         ref={fileInputRef}
                         type="file"
@@ -679,6 +601,7 @@ export default function VerifyCertificate() {
                         className="hidden"
                         id="file-upload"
                       />
+
                       <Button asChild className="mt-4 gap-2">
                         <label htmlFor="file-upload" className="cursor-pointer">
                           <Upload className="h-4 w-4" />
@@ -692,7 +615,10 @@ export default function VerifyCertificate() {
             </Card>
           )}
 
-          <Dialog open={showCertificatePreview} onOpenChange={setShowCertificatePreview}>
+          <Dialog
+            open={showCertificatePreview}
+            onOpenChange={setShowCertificatePreview}
+          >
             <DialogContent className="max-h-[90vh] max-w-6xl overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Verified Certificate Preview</DialogTitle>

@@ -1,27 +1,33 @@
-import React, {
-  createContext,
-  useContext,
-  useState,
-  useCallback,
-  useEffect,
-  ReactNode
-} from 'react';
-import {
-  blockchainService,
-  BlockchainService,
-  DEFAULT_CONTRACT_ADDRESS
-} from '@/lib/blockchain';
+// Isme:
+
+// updated blockchain.ts use hoga
+
+// wallet connect
+
+// contract init
+
+// admin check
+
+// disconnect/reset
+
+// state management clean rahega
+
+
+// Full updated src/contexts/BlockchainContext.tsx
+
+import React, { createContext, useContext, useMemo, useState, ReactNode } from 'react';
+import { blockchainService } from '@/lib/blockchain';
 
 interface BlockchainContextType {
+  service: typeof blockchainService;
   isConnected: boolean;
-  walletAddress: string | null;
-  contractAddress: string | null;
+  walletAddress: string;
+  contractAddress: string;
   isAdmin: boolean;
   isLoading: boolean;
-  error: string | null;
+  error: string;
   connectWallet: () => Promise<void>;
-  initContract: (address?: string) => Promise<void>;
-  service: BlockchainService;
+  initContract: (contractAddress: string) => Promise<void>;
   disconnect: () => void;
 }
 
@@ -29,127 +35,81 @@ const BlockchainContext = createContext<BlockchainContextType | undefined>(undef
 
 export function BlockchainProvider({ children }: { children: ReactNode }) {
   const [isConnected, setIsConnected] = useState(false);
-  const [walletAddress, setWalletAddress] = useState<string | null>(null);
-  const [contractAddress, setContractAddress] = useState<string | null>(null);
+  const [walletAddress, setWalletAddress] = useState('');
+  const [contractAddress, setContractAddress] = useState('');
   const [isAdmin, setIsAdmin] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState('');
 
-  const initContract = useCallback(async (address?: string) => {
-    setIsLoading(true);
-    setError(null);
-
+  const connectWallet = async () => {
     try {
-      const finalAddress = address || DEFAULT_CONTRACT_ADDRESS;
+      setIsLoading(true);
+      setError('');
 
-      await blockchainService.initContract(finalAddress);
-      setContractAddress(finalAddress);
+      const address = await blockchainService.connectWallet();
 
-      const adminStatus = await blockchainService.isAdmin();
-      setIsAdmin(adminStatus);
+      setWalletAddress(address);
+      setIsConnected(true);
     } catch (err: any) {
-      setError(err.message || 'Failed to initialize contract');
+      setError(err.message || 'Failed to connect wallet');
+      setIsConnected(false);
+      setWalletAddress('');
       throw err;
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  };
 
-  const connectWallet = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-
+  const initContract = async (newContractAddress: string) => {
     try {
-      const address = await blockchainService.connectWallet();
-      setWalletAddress(address);
-      setIsConnected(true);
+      setIsLoading(true);
+      setError('');
 
-      // Auto initialize default contract after wallet connect
-      await blockchainService.initContract(DEFAULT_CONTRACT_ADDRESS);
-      setContractAddress(DEFAULT_CONTRACT_ADDRESS);
+      await blockchainService.initContract(newContractAddress);
 
       const adminStatus = await blockchainService.isAdmin();
+
+      setContractAddress(newContractAddress);
       setIsAdmin(adminStatus);
     } catch (err: any) {
-      setError(err.message || 'Failed to connect wallet');
-      setIsConnected(false);
-      setWalletAddress(null);
-      setContractAddress(null);
+      setError(err.message || 'Failed to initialize contract');
+      setContractAddress('');
       setIsAdmin(false);
       throw err;
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  };
 
-  const disconnect = useCallback(() => {
+  const disconnect = () => {
+    blockchainService.reset();
+
     setIsConnected(false);
-    setWalletAddress(null);
-    setContractAddress(null);
+    setWalletAddress('');
+    setContractAddress('');
     setIsAdmin(false);
-    setError(null);
+    setIsLoading(false);
+    setError('');
+  };
 
-    // Reset internal service state safely
-    (blockchainService as any).provider = null;
-    (blockchainService as any).signer = null;
-    (blockchainService as any).contract = null;
-    (blockchainService as any).contractAddress = '';
-  }, []);
-
-  useEffect(() => {
-    if (!window.ethereum) return;
-
-    const handleAccountsChanged = async (accounts: string[]) => {
-      if (!accounts || accounts.length === 0) {
-        disconnect();
-        return;
-      }
-
-      const newAddress = accounts[0];
-      setWalletAddress(newAddress);
-      setIsConnected(true);
-
-      try {
-        await blockchainService.initContract(DEFAULT_CONTRACT_ADDRESS);
-        setContractAddress(DEFAULT_CONTRACT_ADDRESS);
-
-        const adminStatus = await blockchainService.isAdmin();
-        setIsAdmin(adminStatus);
-      } catch (err: any) {
-        setError(err.message || 'Failed to reinitialize after account change');
-      }
-    };
-
-    const handleChainChanged = () => {
-      window.location.reload();
-    };
-
-    window.ethereum.on('accountsChanged', handleAccountsChanged);
-    window.ethereum.on('chainChanged', handleChainChanged);
-
-    return () => {
-      if (window.ethereum?.removeListener) {
-        window.ethereum.removeListener('accountsChanged', handleAccountsChanged);
-        window.ethereum.removeListener('chainChanged', handleChainChanged);
-      }
-    };
-  }, [disconnect]);
+  const value = useMemo(
+    () => ({
+      service: blockchainService,
+      isConnected,
+      walletAddress,
+      contractAddress,
+      isAdmin,
+      isLoading,
+      error,
+      connectWallet,
+      initContract,
+      disconnect
+    }),
+    [isConnected, walletAddress, contractAddress, isAdmin, isLoading, error]
+  );
 
   return (
-    <BlockchainContext.Provider
-      value={{
-        isConnected,
-        walletAddress,
-        contractAddress,
-        isAdmin,
-        isLoading,
-        error,
-        connectWallet,
-        initContract,
-        service: blockchainService,
-        disconnect
-      }}
-    >
+    <BlockchainContext.Provider value={value}>
       {children}
     </BlockchainContext.Provider>
   );
@@ -157,8 +117,11 @@ export function BlockchainProvider({ children }: { children: ReactNode }) {
 
 export function useBlockchain() {
   const context = useContext(BlockchainContext);
-  if (context === undefined) {
+
+  if (!context) {
     throw new Error('useBlockchain must be used within a BlockchainProvider');
   }
+
   return context;
 }
+

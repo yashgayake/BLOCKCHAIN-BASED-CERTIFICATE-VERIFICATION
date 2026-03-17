@@ -1,3 +1,23 @@
+// new getStudent() structure use ho raha hai
+
+// student profile me:
+
+// email
+
+// mobileNumber
+
+// department
+
+// batchYear
+
+// on-chain certificateNumber use ho raha hai
+
+// QR verify link par based hai
+
+// PDF download one-page version me hai
+
+// Full updated src/pages/StudentPortal.tsx
+
 import { useRef, useState } from 'react';
 import {
   GraduationCap,
@@ -49,21 +69,28 @@ interface PreviewCertificateData {
   certificateHash: string;
 }
 
+interface LoggedInStudent {
+  enrollmentNumber: string;
+  name: string;
+  email: string;
+  mobileNumber: string;
+  department: string;
+  batchYear: string;
+}
+
 export default function StudentPortal() {
   const [enrollmentNumber, setEnrollmentNumber] = useState('');
   const [password, setPassword] = useState('');
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
-  const [loggedInStudent, setLoggedInStudent] = useState<{
-    enrollmentNumber: string;
-    name: string;
-  } | null>(null);
 
+  const [loggedInStudent, setLoggedInStudent] = useState<LoggedInStudent | null>(null);
   const [blockchainCertificates, setBlockchainCertificates] = useState<Certificate[]>([]);
   const [studentCertificates, setStudentCertificates] = useState<any[]>([]);
   const [previewOpen, setPreviewOpen] = useState(false);
-  const [selectedCertificate, setSelectedCertificate] = useState<PreviewCertificateData | null>(null);
+  const [selectedCertificate, setSelectedCertificate] =
+    useState<PreviewCertificateData | null>(null);
 
   const previewRef = useRef<HTMLDivElement | null>(null);
 
@@ -71,7 +98,10 @@ export default function StudentPortal() {
   const { toast } = useToast();
 
   const handleLogin = async () => {
-    if (!enrollmentNumber.trim() || !password.trim()) {
+    const cleanEnrollment = enrollmentNumber.trim();
+    const cleanPassword = password.trim();
+
+    if (!cleanEnrollment || !cleanPassword) {
       toast({
         title: 'Error',
         description: 'Please enter enrollment number and password',
@@ -89,14 +119,14 @@ export default function StudentPortal() {
         DEFAULT_CONTRACT_ADDRESS,
         [
           'function verifyStudentLogin(string _enrollmentNumber, string _password) public view returns (bool)',
-          'function getStudent(string _enrollmentNumber) public view returns (string name, string email, string course, bool isRegistered, uint256 registrationDate)',
+          'function getStudent(string _enrollmentNumber) public view returns (string name, string email, string mobileNumber, string department, string batchYear, bool isRegistered, uint256 registrationDate)',
           'function getStudentCertificates(string _enrollmentNumber) public view returns (string[])',
-          'function getCertificate(string _certificateHash) public view returns (string studentName, string enrollmentNumber, string course, string institution, uint256 issueYear, uint256 issueDate, string ipfsHash, address issuerAddress)'
+          'function getCertificate(string _certificateHash) public view returns (string certificateNumber, string studentName, string enrollmentNumber, string course, string institution, uint256 issueYear, uint256 issueDate, string ipfsHash, address issuerAddress)'
         ],
         provider
       );
 
-      const isValidLogin = await contract.verifyStudentLogin(enrollmentNumber.trim(), password.trim());
+      const isValidLogin = await contract.verifyStudentLogin(cleanEnrollment, cleanPassword);
 
       if (!isValidLogin) {
         toast({
@@ -107,7 +137,7 @@ export default function StudentPortal() {
         return;
       }
 
-      const studentData = await contract.getStudent(enrollmentNumber.trim());
+      const studentData = await contract.getStudent(cleanEnrollment);
 
       if (!studentData || !studentData.isRegistered) {
         toast({
@@ -118,13 +148,14 @@ export default function StudentPortal() {
         return;
       }
 
-      const certHashes = await contract.getStudentCertificates(enrollmentNumber.trim());
+      const certHashes = await contract.getStudentCertificates(cleanEnrollment);
       const certs: Certificate[] = [];
 
       for (const hash of certHashes) {
         try {
           const certData = await contract.getCertificate(hash);
           certs.push({
+            certificateNumber: certData.certificateNumber,
             studentName: certData.studentName,
             enrollmentNumber: certData.enrollmentNumber,
             course: certData.course,
@@ -142,14 +173,16 @@ export default function StudentPortal() {
 
       setIsLoggedIn(true);
       setLoggedInStudent({
-        enrollmentNumber: enrollmentNumber.trim(),
-        name: studentData.name
+        enrollmentNumber: cleanEnrollment,
+        name: studentData.name,
+        email: studentData.email,
+        mobileNumber: studentData.mobileNumber,
+        department: studentData.department,
+        batchYear: studentData.batchYear
       });
 
       setBlockchainCertificates(certs);
-
-      const localCerts = getCertificatesByEnrollment(enrollmentNumber.trim());
-      setStudentCertificates(localCerts);
+      setStudentCertificates(getCertificatesByEnrollment(cleanEnrollment));
 
       toast({
         title: 'Login Successful',
@@ -177,6 +210,10 @@ export default function StudentPortal() {
     setPassword('');
     setPreviewOpen(false);
     setSelectedCertificate(null);
+  };
+
+  const getVerifyUrl = (certHash: string) => {
+    return `${window.location.origin}/verify?hash=${certHash}`;
   };
 
   const downloadQRCode = (certHash: string) => {
@@ -212,6 +249,7 @@ export default function StudentPortal() {
   const getCertificateNumber = (cert: Certificate) => {
     const localData = getLocalCertData(cert.certificateHash);
     return (
+      cert.certificateNumber ||
       localData?.certificateNumber ||
       `CERT-${cert.issueYear}-${cert.enrollmentNumber.toString().slice(-4).padStart(4, '0')}`
     );
@@ -233,8 +271,8 @@ export default function StudentPortal() {
     setPreviewOpen(true);
   };
 
-  const downloadPdfFromPreview = async () => {
-    if (!previewRef.current || !selectedCertificate) {
+  const downloadPdfFromPreview = async (certificateData?: PreviewCertificateData) => {
+    if (!previewRef.current || !(certificateData || selectedCertificate)) {
       toast({
         title: 'Preview Missing',
         description: 'Certificate preview is not available.',
@@ -246,34 +284,20 @@ export default function StudentPortal() {
     try {
       setIsDownloadingPdf(true);
 
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
       const canvas = await html2canvas(previewRef.current, {
-        scale: 2,
+        scale: 3,
         useCORS: true,
         backgroundColor: '#ffffff'
       });
 
+      const activeCertificate = certificateData || selectedCertificate!;
       const imgData = canvas.toDataURL('image/png');
       const pdf = new jsPDF('p', 'mm', 'a4');
 
-      const pdfWidth = 210;
-      const pdfHeight = 297;
-      const imgWidth = pdfWidth;
-      const imgHeight = (canvas.height * imgWidth) / canvas.width;
-
-      let heightLeft = imgHeight;
-      let position = 0;
-
-      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-      heightLeft -= pdfHeight;
-
-      while (heightLeft > 0) {
-        position = heightLeft - imgHeight;
-        pdf.addPage();
-        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-        heightLeft -= pdfHeight;
-      }
-
-      pdf.save(`${selectedCertificate.certificateNumber}.pdf`);
+      pdf.addImage(imgData, 'PNG', 0, 0, 210, 297);
+      pdf.save(`${activeCertificate.certificateNumber}.pdf`);
 
       toast({
         title: 'PDF Downloaded',
@@ -369,7 +393,7 @@ export default function StudentPortal() {
     <div className="min-h-screen bg-background">
       <Navbar />
       <div className="container py-8">
-        <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
           <div>
             <h1 className="flex items-center gap-3 text-3xl font-bold">
               <GraduationCap className="h-8 w-8 text-success" />
@@ -378,6 +402,13 @@ export default function StudentPortal() {
             <p className="mt-1 text-muted-foreground">
               Enrollment: {loggedInStudent?.enrollmentNumber}
             </p>
+
+            <div className="mt-3 grid gap-2 text-sm text-muted-foreground md:grid-cols-2">
+              <p>Email: {loggedInStudent?.email || '-'}</p>
+              <p>Mobile: {loggedInStudent?.mobileNumber || '-'}</p>
+              <p>Department: {loggedInStudent?.department || '-'}</p>
+              <p>Batch / Year: {loggedInStudent?.batchYear || '-'}</p>
+            </div>
           </div>
 
           <Button onClick={handleLogout} variant="outline" className="gap-2">
@@ -483,7 +514,7 @@ export default function StudentPortal() {
                               <div className="rounded-xl bg-white p-4">
                                 <QRCodeSVG
                                   id={`qr-${cert.certificateHash}`}
-                                  value={cert.certificateHash}
+                                  value={getVerifyUrl(cert.certificateHash)}
                                   size={200}
                                   level="H"
                                 />
@@ -543,11 +574,22 @@ export default function StudentPortal() {
                           variant="outline"
                           size="sm"
                           className="gap-2"
-                          onClick={() => {
-                            openGeneratedCertificate(cert);
+                          onClick={async () => {
+                            const certificateData = {
+                              certificateNumber: getCertificateNumber(cert),
+                              studentName: cert.studentName,
+                              course: cert.course,
+                              institution: cert.institution,
+                              issueDate: getIssueDateString(cert),
+                              certificateHash: cert.certificateHash
+                            };
+
+                            setSelectedCertificate(certificateData);
+                            setPreviewOpen(true);
+
                             setTimeout(() => {
-                              downloadPdfFromPreview();
-                            }, 300);
+                              downloadPdfFromPreview(certificateData);
+                            }, 400);
                           }}
                         >
                           <Download className="h-4 w-4" />
@@ -563,9 +605,9 @@ export default function StudentPortal() {
         )}
 
         <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
-          <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-h-[90vh] max-w-6xl overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Generated Certificate Preview</DialogTitle>
+              <DialogTitle>Certificate Preview</DialogTitle>
             </DialogHeader>
 
             {selectedCertificate && (
@@ -586,7 +628,7 @@ export default function StudentPortal() {
                   <Button
                     variant="outline"
                     className="gap-2"
-                    onClick={downloadPdfFromPreview}
+                    onClick={() => downloadPdfFromPreview()}
                     disabled={isDownloadingPdf}
                   >
                     <Download className="h-4 w-4" />

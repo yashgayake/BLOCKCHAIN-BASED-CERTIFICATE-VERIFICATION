@@ -18,7 +18,13 @@ import {
 
 import AnalyticsDashboard from '@/components/admin/AnalyticsDashboard';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle
+} from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Navbar } from '@/components/Navbar';
@@ -28,9 +34,21 @@ import { RegisterStudent } from '@/components/admin/RegisterStudent';
 import { IssueCertificate } from '@/components/admin/IssueCertificate';
 import { ViewAllRecords } from '@/components/admin/ViewAllRecords';
 import { DEFAULT_CONTRACT_ADDRESS, ADMIN_WALLET_ADDRESS } from '@/lib/blockchain';
-import { useAppContext } from '@/contexts/AppContext';
 
 type AdminAction = 'register' | 'issue' | 'records' | null;
+
+interface DashboardCertificate {
+  certificateHash: string;
+  certificateNumber: string;
+  studentName: string;
+  enrollmentNumber: string;
+  course: string;
+  institution: string;
+  issueYear: number;
+  issueDate: number;
+  ipfsHash: string;
+  issuerAddress: string;
+}
 
 export default function AdminPortal() {
   const [contractAddress, setContractAddress] = useState(DEFAULT_CONTRACT_ADDRESS);
@@ -41,6 +59,9 @@ export default function AdminPortal() {
     totalCertificates: 0
   });
   const [statsLoading, setStatsLoading] = useState(false);
+
+  const [dashboardCertificates, setDashboardCertificates] = useState<DashboardCertificate[]>([]);
+  const [dashboardCertificatesLoading, setDashboardCertificatesLoading] = useState(false);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [courseFilter, setCourseFilter] = useState('All');
@@ -59,7 +80,6 @@ export default function AdminPortal() {
     service
   } = useBlockchain();
 
-  const { certificates } = useAppContext();
   const { toast } = useToast();
 
   const handleConnect = async () => {
@@ -72,7 +92,7 @@ export default function AdminPortal() {
     } catch (err: any) {
       toast({
         title: 'Connection Failed',
-        description: err.message,
+        description: err.message || 'Failed to connect wallet',
         variant: 'destructive'
       });
     }
@@ -97,7 +117,7 @@ export default function AdminPortal() {
     } catch (err: any) {
       toast({
         title: 'Contract Error',
-        description: err.message,
+        description: err.message || 'Failed to connect contract',
         variant: 'destructive'
       });
     }
@@ -109,6 +129,7 @@ export default function AdminPortal() {
       totalStudents: 0,
       totalCertificates: 0
     });
+    setDashboardCertificates([]);
     disconnect();
   };
 
@@ -136,9 +157,52 @@ export default function AdminPortal() {
     }
   };
 
+  const loadDashboardCertificates = async () => {
+    if (!connectedContract || !isAdmin) return;
+
+    try {
+      setDashboardCertificatesLoading(true);
+
+      const hashes = await service.getAllCertificateHashes();
+
+      const certData: DashboardCertificate[] = await Promise.all(
+        hashes.map(async (hash: string) => {
+          const cert = await service.getCertificate(hash);
+
+          return {
+            certificateHash: hash,
+            certificateNumber: cert.certificateNumber || '-',
+            studentName: cert.studentName,
+            enrollmentNumber: cert.enrollmentNumber,
+            course: cert.course,
+            institution: cert.institution,
+            issueYear: cert.issueYear,
+            issueDate: cert.issueDate,
+            ipfsHash: cert.ipfsHash,
+            issuerAddress: cert.issuerAddress
+          };
+        })
+      );
+
+      setDashboardCertificates(certData);
+    } catch (err: any) {
+      toast({
+        title: 'Certificates Load Failed',
+        description: err.message || 'Could not load issued certificates.',
+        variant: 'destructive'
+      });
+    } finally {
+      setDashboardCertificatesLoading(false);
+    }
+  };
+
+  const refreshDashboard = async () => {
+    await Promise.all([loadDashboardStats(), loadDashboardCertificates()]);
+  };
+
   useEffect(() => {
     if (connectedContract && isAdmin) {
-      loadDashboardStats();
+      refreshDashboard();
     }
   }, [connectedContract, isAdmin]);
 
@@ -159,27 +223,38 @@ export default function AdminPortal() {
   };
 
   const uniqueCourses = useMemo(() => {
-    return ['All', ...Array.from(new Set(certificates.map((c: any) => c.course))).filter(Boolean)];
-  }, [certificates]);
+    return [
+      'All',
+      ...Array.from(new Set(dashboardCertificates.map((c) => c.course).filter(Boolean)))
+    ];
+  }, [dashboardCertificates]);
 
   const uniqueYears = useMemo(() => {
-    return ['All', ...Array.from(new Set(certificates.map((c: any) => String(c.issueYear)))).filter(Boolean)];
-  }, [certificates]);
+    return [
+      'All',
+      ...Array.from(
+        new Set(dashboardCertificates.map((c) => String(c.issueYear)).filter(Boolean))
+      )
+    ];
+  }, [dashboardCertificates]);
 
   const filteredCertificates = useMemo(() => {
-    return certificates.filter((cert: any) => {
+    const query = searchTerm.trim().toLowerCase();
+
+    return dashboardCertificates.filter((cert) => {
       const matchesSearch =
-        !searchTerm ||
-        cert.studentName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        cert.enrollmentNumber.toString().includes(searchTerm) ||
-        (cert.certificateNumber || '').toLowerCase().includes(searchTerm.toLowerCase());
+        !query ||
+        cert.studentName.toLowerCase().includes(query) ||
+        cert.enrollmentNumber.toLowerCase().includes(query) ||
+        cert.certificateNumber.toLowerCase().includes(query) ||
+        cert.course.toLowerCase().includes(query);
 
       const matchesCourse = courseFilter === 'All' || cert.course === courseFilter;
       const matchesYear = yearFilter === 'All' || String(cert.issueYear) === yearFilter;
 
       return matchesSearch && matchesCourse && matchesYear;
     });
-  }, [certificates, searchTerm, courseFilter, yearFilter]);
+  }, [dashboardCertificates, searchTerm, courseFilter, yearFilter]);
 
   const actions = [
     {
@@ -192,7 +267,7 @@ export default function AdminPortal() {
       id: 'issue' as const,
       icon: FileCheck,
       title: 'Issue Certificate',
-      description: 'Issue a new certificate with AI extraction or manual entry'
+      description: 'Issue a new certificate with manual entry'
     },
     {
       id: 'records' as const,
@@ -376,13 +451,17 @@ export default function AdminPortal() {
             </div>
 
             <Button
-              onClick={loadDashboardStats}
+              onClick={refreshDashboard}
               variant="outline"
               size="sm"
               className="gap-2"
-              disabled={statsLoading}
+              disabled={statsLoading || dashboardCertificatesLoading}
             >
-              <RefreshCw className={`h-4 w-4 ${statsLoading ? 'animate-spin' : ''}`} />
+              <RefreshCw
+                className={`h-4 w-4 ${
+                  statsLoading || dashboardCertificatesLoading ? 'animate-spin' : ''
+                }`}
+              />
               Refresh
             </Button>
 
@@ -416,75 +495,13 @@ export default function AdminPortal() {
 
         {currentAction === null ? (
           <>
-            <div className="mb-8 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-              <Card className="glass-card">
-                <CardContent className="py-5">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-muted-foreground">Total Certificates</p>
-                      <h3 className="mt-2 text-2xl font-bold">
-                        {statsLoading ? '...' : stats.totalCertificates}
-                      </h3>
-                    </div>
-                    <div className="rounded-2xl bg-success/10 p-3">
-                      <Files className="h-6 w-6 text-success" />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-     
-
-              <Card className="glass-card">
-                <CardContent className="py-5">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-muted-foreground">Total Students</p>
-                      <h3 className="mt-2 text-2xl font-bold">
-                        {statsLoading ? '...' : stats.totalStudents}
-                      </h3>
-                    </div>
-                    <div className="rounded-2xl bg-primary/10 p-3">
-                      <Users className="h-6 w-6 text-primary" />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="glass-card">
-                <CardContent className="py-5">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-muted-foreground">Courses</p>
-                      <h3 className="mt-2 text-2xl font-bold">
-                        {Array.from(new Set(certificates.map((c: any) => c.course))).length}
-                      </h3>
-                    </div>
-                    <div className="rounded-2xl bg-purple-500/10 p-3">
-                      <List className="h-6 w-6 text-purple-500" />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="glass-card">
-                <CardContent className="py-5">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-muted-foreground">Contract Connected</p>
-                      <h3 className="mt-2 text-lg font-bold text-primary">
-                        {connectedContract ? 'Yes' : 'No'}
-                      </h3>
-                    </div>
-                    <div className="rounded-2xl bg-orange-500/10 p-3">
-                      <LinkIcon className="h-6 w-6 text-orange-500" />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
+            
             <div className="mb-8">
-              <AnalyticsDashboard />
+              <AnalyticsDashboard
+                certificates={dashboardCertificates}
+                totalStudents={stats.totalStudents}
+                contractConnected={!!connectedContract}
+              />
             </div>
 
             <div className="mb-6 flex flex-col gap-4 md:flex-row">
@@ -529,7 +546,11 @@ export default function AdminPortal() {
               </CardHeader>
 
               <CardContent>
-                {filteredCertificates.length === 0 ? (
+                {dashboardCertificatesLoading ? (
+                  <p className="py-8 text-center text-muted-foreground">
+                    Loading certificates from blockchain...
+                  </p>
+                ) : filteredCertificates.length === 0 ? (
                   <p className="py-8 text-center text-muted-foreground">
                     No certificates found.
                   </p>
@@ -547,13 +568,13 @@ export default function AdminPortal() {
                         </tr>
                       </thead>
                       <tbody>
-                        {filteredCertificates.map((cert: any) => (
+                        {filteredCertificates.map((cert) => (
                           <tr key={cert.certificateHash} className="border-b">
                             <td className="px-4 py-4">{cert.studentName}</td>
                             <td className="px-4 py-4">{cert.enrollmentNumber}</td>
                             <td className="px-4 py-4">{cert.course}</td>
                             <td className="px-4 py-4">{cert.issueYear}</td>
-                            <td className="px-4 py-4">{cert.certificateNumber}</td>
+                            <td className="px-4 py-4">{cert.certificateNumber || '-'}</td>
                             <td className="px-4 py-4">
                               <div className="flex items-center gap-2">
                                 <span className="font-mono text-xs">

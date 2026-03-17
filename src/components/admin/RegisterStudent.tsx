@@ -1,3 +1,33 @@
+// Isme kya change hua
+
+// course field remove
+
+// add kiya:
+
+// mobileNumber
+
+// department
+
+// batchYear
+
+
+// duplicate check enrollment number par hi
+
+// required fields:
+
+// enrollment number
+
+// full name
+
+// password
+
+
+// email optional
+
+// new service.registerStudent() params ke hisaab se update
+
+// Full updated src/components/admin/RegisterStudent.tsx
+
 import { useState } from 'react';
 import { UserPlus, CheckCircle2, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -12,7 +42,9 @@ export function RegisterStudent() {
     enrollmentNumber: '',
     name: '',
     email: '',
-    course: '',
+    mobileNumber: '',
+    department: '',
+    batchYear: '',
     password: '0777'
   });
 
@@ -63,13 +95,15 @@ export function RegisterStudent() {
     const cleanEnrollment = formData.enrollmentNumber.trim();
     const cleanName = formData.name.trim();
     const cleanEmail = formData.email.trim();
-    const cleanCourse = formData.course.trim();
+    const cleanMobileNumber = formData.mobileNumber.trim();
+    const cleanDepartment = formData.department.trim();
+    const cleanBatchYear = formData.batchYear.trim();
     const cleanPassword = formData.password.trim();
 
-    if (!cleanEnrollment || !cleanName || !cleanCourse) {
+    if (!cleanEnrollment || !cleanName || !cleanPassword) {
       toast({
         title: 'Missing Fields',
-        description: 'Please fill enrollment number, full name, and course.',
+        description: 'Please fill enrollment number, full name, and password.',
         variant: 'destructive'
       });
       return;
@@ -108,7 +142,7 @@ export function RegisterStudent() {
         return;
       }
     } catch {
-      // continue if no student found
+      // continue if student does not exist
     }
 
     try {
@@ -116,7 +150,9 @@ export function RegisterStudent() {
         cleanEnrollment,
         cleanName,
         cleanEmail,
-        cleanCourse,
+        cleanMobileNumber,
+        cleanDepartment,
+        cleanBatchYear,
         cleanPassword
       );
 
@@ -134,7 +170,9 @@ export function RegisterStudent() {
         enrollmentNumber: cleanEnrollment,
         name: cleanName,
         email: cleanEmail,
-        course: cleanCourse,
+        mobileNumber: cleanMobileNumber,
+        department: cleanDepartment,
+        batchYear: cleanBatchYear,
         password: cleanPassword
       });
     } catch (err: any) {
@@ -152,9 +190,9 @@ export function RegisterStudent() {
     return (
       <Card className="glass-card">
         <CardContent className="py-12 text-center">
-          <CheckCircle2 className="h-16 w-16 text-success mx-auto mb-4" />
-          <h3 className="text-2xl font-bold text-success mb-2">Student Registered!</h3>
-          <p className="text-muted-foreground mb-4">
+          <CheckCircle2 className="mx-auto mb-4 h-16 w-16 text-success" />
+          <h3 className="mb-2 text-2xl font-bold text-success">Student Registered!</h3>
+          <p className="mb-4 text-muted-foreground">
             Enrollment: {formData.enrollmentNumber}
           </p>
           <Button
@@ -165,7 +203,9 @@ export function RegisterStudent() {
                 enrollmentNumber: '',
                 name: '',
                 email: '',
-                course: '',
+                mobileNumber: '',
+                department: '',
+                batchYear: '',
                 password: '0777'
               });
             }}
@@ -200,10 +240,10 @@ export function RegisterStudent() {
               placeholder="Enter enrollment number"
             />
             {checkingDuplicate && (
-              <p className="text-xs text-muted-foreground mt-1">Checking duplicate...</p>
+              <p className="mt-1 text-xs text-muted-foreground">Checking duplicate...</p>
             )}
             {duplicateFound && (
-              <p className="text-xs text-destructive mt-1">
+              <p className="mt-1 text-xs text-destructive">
                 This enrollment number is already registered.
               </p>
             )}
@@ -231,24 +271,50 @@ export function RegisterStudent() {
           </div>
 
           <div>
-            <Label>Course *</Label>
+            <Label>Mobile Number</Label>
             <Input
-              value={formData.course}
-              onChange={(e) => setFormData({ ...formData, course: e.target.value })}
+              value={formData.mobileNumber}
+              onChange={(e) =>
+                setFormData({ ...formData, mobileNumber: e.target.value })
+              }
               className="mt-2"
-              placeholder="Enter course name"
+              placeholder="Enter mobile number"
             />
           </div>
 
           <div>
-            <Label>Password</Label>
+            <Label>Department</Label>
+            <Input
+              value={formData.department}
+              onChange={(e) =>
+                setFormData({ ...formData, department: e.target.value })
+              }
+              className="mt-2"
+              placeholder="Enter department"
+            />
+          </div>
+
+          <div>
+            <Label>Batch / Year</Label>
+            <Input
+              value={formData.batchYear}
+              onChange={(e) =>
+                setFormData({ ...formData, batchYear: e.target.value })
+              }
+              className="mt-2"
+              placeholder="Enter batch or year"
+            />
+          </div>
+
+          <div className="md:col-span-2">
+            <Label>Password *</Label>
             <Input
               value={formData.password}
               onChange={(e) => setFormData({ ...formData, password: e.target.value })}
               className="mt-2"
               placeholder="Enter password"
             />
-            <p className="text-xs text-muted-foreground mt-1">
+            <p className="mt-1 text-xs text-muted-foreground">
               Institute password for student login
             </p>
           </div>
@@ -272,3 +338,4 @@ export function RegisterStudent() {
     </Card>
   );
 }
+

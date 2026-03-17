@@ -1,3 +1,26 @@
+// student registration blockchain me ho raha hai
+
+// student fetch blockchain se ho raha hai
+
+// IssueCertificate bhi blockchain se student data la raha hai
+
+
+// To is file me abhi kya update karna best hai
+
+// Main isme:
+
+// structure clean kar raha hoon
+
+// localStorage load safer bana raha hoon
+
+// certificate number duplicate guard strong kar raha hoon
+
+// clearCertificates same rakhoonga
+
+// Ye file certificate cache/store ke liye enough rahegi.
+
+// Full updated AppContext.tsx
+
 import React, { createContext, useContext, useState, ReactNode } from 'react';
 
 export interface StoredCertificate {
@@ -24,39 +47,53 @@ interface AppContextType {
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
+const CERTIFICATES_STORAGE_KEY = 'certificates';
+
 export function AppProvider({ children }: { children: ReactNode }) {
   const [certificates, setCertificates] = useState<StoredCertificate[]>(() => {
-    const stored = localStorage.getItem('certificates');
-    return stored ? JSON.parse(stored) : [];
+    try {
+      const stored = localStorage.getItem(CERTIFICATES_STORAGE_KEY);
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
+    }
   });
 
   const addCertificate = (cert: StoredCertificate) => {
-    setCertificates(prev => {
-      const exists = prev.some(
-        c => c.certificateHash.toLowerCase() === cert.certificateHash.toLowerCase()
+    setCertificates((prev) => {
+      const hashExists = prev.some(
+        (c) => c.certificateHash.toLowerCase() === cert.certificateHash.toLowerCase()
       );
 
-      if (exists) return prev;
+      const numberExists = prev.some(
+        (c) => c.certificateNumber.toLowerCase() === cert.certificateNumber.toLowerCase()
+      );
+
+      if (hashExists || numberExists) {
+        return prev;
+      }
 
       const updated = [...prev, cert];
-      localStorage.setItem('certificates', JSON.stringify(updated));
+      localStorage.setItem(CERTIFICATES_STORAGE_KEY, JSON.stringify(updated));
       return updated;
     });
   };
 
   const getCertificateByHash = (hash: string) => {
     return certificates.find(
-      c => c.certificateHash.toLowerCase() === hash.toLowerCase()
+      (c) => c.certificateHash.toLowerCase() === hash.toLowerCase()
     );
   };
 
   const getCertificatesByEnrollment = (enrollment: string) => {
-    return certificates.filter(c => c.enrollmentNumber === enrollment);
+    return certificates.filter(
+      (c) => c.enrollmentNumber.trim().toLowerCase() === enrollment.trim().toLowerCase()
+    );
   };
 
   const clearCertificates = () => {
     setCertificates([]);
-    localStorage.removeItem('certificates');
+    localStorage.removeItem(CERTIFICATES_STORAGE_KEY);
   };
 
   return (
@@ -76,8 +113,31 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
 export function useAppContext() {
   const context = useContext(AppContext);
+
   if (context === undefined) {
     throw new Error('useAppContext must be used within an AppProvider');
   }
+
   return context;
 }
+
+
+// Kya change hua
+
+// 1. Safe localStorage parsing
+
+// Agar localStorage corrupt hua to app crash nahi karega.
+
+// 2. Duplicate protection stronger
+
+// Ab:
+
+// same certificateHash duplicate nahi hoga
+
+// same certificateNumber duplicate nahi hoga
+
+
+// 3. Enrollment lookup improved
+
+// Case/spacing issue avoid hoga.
+
