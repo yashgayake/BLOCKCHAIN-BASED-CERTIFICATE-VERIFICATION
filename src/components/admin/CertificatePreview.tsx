@@ -179,7 +179,7 @@ export const CertificatePreview = forwardRef<HTMLDivElement, CertificatePreviewP
                 <div className="grid grid-cols-2 gap-6">
                   <div>
                     <p className="font-semibold">{institution}</p>
-                    <p>contact@institution.org</p>
+                    <p>principal.mitr@mit.asia</p>
                   </div>
 
                   <div className="text-right">

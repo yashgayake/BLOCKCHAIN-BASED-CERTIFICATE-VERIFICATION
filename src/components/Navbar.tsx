@@ -3,6 +3,7 @@ import { Shield, GraduationCap, CheckCircle, Menu, X } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import logo from '@/components/assets/logo.avif';
 
 export function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -19,10 +20,11 @@ export function Navbar() {
     <nav className="sticky top-0 z-50 w-full border-b border-border/50 bg-background/80 backdrop-blur-xl">
       <div className="container flex h-16 items-center justify-between">
         <Link to="/" className="flex items-center gap-2">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary">
-            <Shield className="h-5 w-5 text-primary-foreground" />
+          <div className="flex h-10 w-14 items-center justify-center rounded-xl bg-primary">
+            {/* <Shield className="h-5 w-5 text-pimary-foreground" /> */}
+          <img src={logo} alt="Logo" className='h-10 w-15 rounded-lg' />
           </div>
-          <span className="text-lg font-bold">CertChain</span>
+          <span className="text-lg font-bold">Blockchain Based Certificate Verification</span>
         </Link>
 
         {/* Desktop Navigation */}

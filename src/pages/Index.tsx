@@ -65,7 +65,7 @@ const Index = () => {
             </div>
             
             <h1 className="mb-6 text-4xl font-bold tracking-tight md:text-6xl">
-              <span className="gradient-text">CertChain</span>
+              <span className="gradient-text">Blockchain</span>
               <br />
               <span className="text-foreground">Certificate Verification</span>
             </h1>
