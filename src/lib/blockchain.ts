@@ -34,7 +34,7 @@ export const CONTRACT_ABI = [
 // CONFIGURATION - UPDATE THESE AFTER REDEPLOY
 // ============================================
 
-export const DEFAULT_CONTRACT_ADDRESS = '0x10E7Fc6C2b14b96b4Fe1bCDC28Ec83036cc3aCf2';
+export const DEFAULT_CONTRACT_ADDRESS = '0x92f6653E7FF0652A2d7042857D838c141ee7797F';
 export const ADMIN_WALLET_ADDRESS = '0xE894bc126822B8FBbeD56133E27221a0fC74DAd3';
 
 // Ganache Network Configuration
